@@ -355,3 +355,117 @@ def _(mo, surv_4):
     return
 
 
+@app.cell
+def _(mo):
+    mo.md("""
+    ### Courbes de Kaplan-Meier
+    """)
+    return
+
+
+@app.cell
+def _(KaplanMeierFitter, plt, surv_4):
+    chem_list_km = sorted(surv_4['Chemistry'].unique())
+    fig_km1, ax_km1 = plt.subplots(figsize=(10, 6))
+    for chem_km in chem_list_km:
+        sub_km = surv_4[surv_4['Chemistry'] == chem_km]
+        kmf_1 = KaplanMeierFitter()
+        kmf_1.fit(sub_km['duration_80'], event_observed=sub_km['event_80'], label=f'Chemistry {chem_km}')
+        kmf_1.plot_survival_function(ax=ax_km1, linewidth=2)
+    ax_km1.axhline(y=0.5, color='gray', linestyle=':', alpha=0.5)
+    ax_km1.set_xlabel('Cycles')
+    ax_km1.set_ylabel('Probabilite de survie')
+    ax_km1.set_title('Survie par chimie (KM)')
+    ax_km1.legend()
+    plt.gca()
+    return
+
+
+@app.cell
+def _(KaplanMeierFitter, plt, surv_4):
+    fig_km2, axs_km2 = plt.subplots(1, 2, figsize=(16, 6))
+    for i_km2, (col_km2, title_km2) in enumerate([('Temperature', 'Temperature'), ('C-rate', 'C-rate')]):
+        ax_km2 = axs_km2[i_km2]
+        for val_km2 in sorted(surv_4[col_km2].unique()):
+            sub_km2 = surv_4[surv_4[col_km2] == val_km2]
+            if len(sub_km2) > 2:
+                kmf_2 = KaplanMeierFitter()
+                kmf_2.fit(sub_km2['duration_80'], event_observed=sub_km2['event_80'], label=str(val_km2))
+                kmf_2.plot_survival_function(ax=ax_km2, linewidth=2)
+        ax_km2.set_xlabel('Cycles')
+        ax_km2.set_ylabel('Probabilite de survie')
+        ax_km2.set_title(f'Survie par {title_km2}')
+        ax_km2.legend()
+    plt.tight_layout()
+    plt.gca()
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    ## 5. Preparation pour la modelisation
+    """)
+    return
+
+
+@app.cell
+def _(df_raw, np):
+    df_clean_5 = df_raw.copy()
+    df_clean_5 = df_clean_5[df_clean_5['Cycle'] > 0]
+    df_clean_5 = df_clean_5[df_clean_5['SOH_Energy (%)'].between(1, 130)]
+    df_clean_5.loc[df_clean_5['Cycle'] == 1, 'Coulomb_Efficiency (%)'] = np.nan
+    df_clean_5['log_Polarization'] = np.log(df_clean_5['Polarization (Ohm cm\u00b2)'].replace(0, np.nan))
+
+    print(f"Avant : {len(df_raw)} lignes")
+    print(f"Apres : {len(df_clean_5)} lignes")
+    print(f"Retirees : {len(df_raw) - len(df_clean_5)}")
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    ### Pistes pour la modelisation
+
+    "
+          "1. **Prediction precoce (RUL)** : features extraites des N premiers cycles -> modele parametrique (Weibull, Cox).
+    "
+          "2. **Features candidates** : pente SOH initiale, polarisation, coulomb efficiency, parametres CAM.
+    "
+          "3. **Explicabilite** : Cox PH (coefficients interpretables) ou Weibull AFT.
+    "
+          "4. **Alternative** : modeles mixtes sur trajectoire complete de SOH -> temps de passage a 80%.
+    """)
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    ### Observations cles
+
+    "
+          "| Observation | Impact |
+    "
+          "|---|---|
+    "
+          "| Grande variabilite inter-cellules | Effets aleatoires ou features supplementaires |
+    "
+          "| Chimie A plus stable | Variable cle |
+    "
+          "| 60C accelere fortement la degradation | Effet non-lineaire |
+    "
+          "| Polarization augmente avec l'age | Bon indicateur |
+    "
+          "| Coulomb_Efficiency artefact cycle 1 | A corriger |
+    "
+          "| SOH > 100% (bruit) | Winsoriser |
+    "
+          "| 66/157 censurees | Analyse de survie necessaire |
+    """)
+    return
+
+
+if __name__ == "__main__":
+    app.run()
