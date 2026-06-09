@@ -212,30 +212,44 @@ def _(df_raw, plt):
 
 
 @app.cell
-def _(mo):
-    mo.md("""
-    **Trajectoires individuelles** : echantillon de 7 cellules par chimie pour voir la variabilite intra-groupe.
-    """)
-    return
+def _(df_raw, plt, pd):
+    loading_col = 'CAM_Loading (mg/cm\u00b2)'
 
+    # Definir le setup par cellule
+    cell_setup = df_raw.groupby('Cell_Name').agg({
+        'Temperature': 'first',
+        'Chemistry': 'first',
+        loading_col: 'first',
+    }).reset_index()
+    cell_setup['setup'] = (cell_setup['Temperature'] + ' | ' +
+                           cell_setup['Chemistry'] + ' | load=' +
+                           cell_setup[loading_col].astype(str))
 
-@app.cell
-def _(df_raw, plt):
-    sample_7 = df_raw.groupby('Chemistry').apply(lambda g: g['Cell_Name'].unique()[:7]).explode().values
+    # Trier par nombre de cellules decroissant
+    setup_counts = cell_setup['setup'].value_counts()
+    setup_order = setup_counts.index.tolist()
 
-    chem_list2 = sorted(df_raw['Chemistry'].unique())
-    fig_indiv, axs_indiv = plt.subplots(1, 3, figsize=(18, 5))
-    for ax_iv, chem_iv in zip(axs_indiv, chem_list2):
-        selected = [c for c in sample_7 if df_raw[df_raw['Cell_Name'] == c]['Chemistry'].iloc[0] == chem_iv]
-        for cell_iv in selected:
-            d_iv = df_raw[df_raw['Cell_Name'] == cell_iv].sort_values('Cycle')
-            ax_iv.plot(d_iv['Cycle'], d_iv['SOH_Energy (%)'], linewidth=0.8, alpha=0.7)
-        ax_iv.axhline(y=80, color='red', linestyle='--', alpha=0.5)
-        ax_iv.set_title(f'Chemistry {chem_iv}')
-        ax_iv.set_xlabel('Cycle')
-        ax_iv.set_ylabel('SOH (%)')
-        ax_iv.set_xlim(0, 3000)
-        ax_iv.set_ylim(0, 120)
+    # Joindre le setup aux donnees cycliques
+    setup_map = cell_setup.set_index('Cell_Name')['setup'].to_dict()
+    df_plot = df_raw.copy()
+    df_plot['setup'] = df_plot['Cell_Name'].map(setup_map)
+
+    # Grouper par setup et cycle, calculer la moyenne
+    fig_setup, ax_setup = plt.subplots(figsize=(14, 8))
+
+    for setup_name in setup_order:
+        n_cells = setup_counts[setup_name]
+        sub = df_plot[df_plot['setup'] == setup_name]
+        mean_soh = sub.groupby('Cycle')['SOH_Energy (%)'].mean()
+        ax_setup.plot(mean_soh.index, mean_soh.values,
+                     label=f'{setup_name} (n={n_cells})', linewidth=1.5)
+
+    ax_setup.axhline(y=80, color='red', linestyle='--', alpha=0.5)
+    ax_setup.set_xlabel('Cycle')
+    ax_setup.set_ylabel('SOH_Energy (%)')
+    ax_setup.set_title('Trajectoire moyenne de SOH par setup (Temperature | Chemistry | CAM Loading)')
+    ax_setup.set_xlim(0, 3000)
+    ax_setup.legend(fontsize=8, loc='upper right')
     plt.tight_layout()
     plt.gca()
     return
