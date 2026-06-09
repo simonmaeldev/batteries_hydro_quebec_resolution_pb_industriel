@@ -300,10 +300,11 @@ def _(mo):
     **Impact** : 1122 cycles lents identifies sur les 157 batteries (7.1 en moyenne, max 27 pour SAL241202I). Ces cycles creent un bruit
     parasite dans les donnees et surestiment la sante reelle de la batterie a ces moments-la.
 
-    **Traitement** : detection par `Cycle_Time > 3 * median(Cycle_Time)` pour chaque batterie, puis suppression des cycles lents.
+    **Traitement** : detection par `Avg_Charge_Current < median(Avg_Charge_Current) / 6` pour chaque batterie
+    (le courant de charge est divise par ~8-10 pendant les check-ups), puis suppression des cycles lents.
     ZERO cycle de recuperation a ignorer -- la batterie revient a son etat normal des le cycle suivant.
 
-    **Autres filtres** : cycle 0 retire (SOH=0), SOH hors [1%, 130%] retire (artefacts de mesure).
+    **Autres filtres** : cycle 0 retire (SOH=0), dernier cycle retire (artefact fin de test), SOH hors [1%, 130%] retire.
     """)
     return
 
@@ -315,8 +316,8 @@ def _(df_raw, plt):
     cell_sl = 'SAL241202I'
     sub_sl = df_raw[df_raw['Cell_Name'] == cell_sl].sort_values('Cycle').copy()
 
-    median_ct_sl = sub_sl['Cycle_Time (h)'].median()
-    sub_sl['is_slow'] = sub_sl['Cycle_Time (h)'] > 3 * median_ct_sl
+    median_cur_sl = sub_sl['Avg_Charge_Current (A)'].median()
+    sub_sl['is_slow'] = sub_sl['Avg_Charge_Current (A)'] < median_cur_sl / 6
     slow_cycles = sub_sl[sub_sl['is_slow']]['Cycle'].astype(int).values
 
     fig_slow, axs_slow = plt.subplots(3, 1, figsize=(14, 10), sharex=True)
@@ -360,11 +361,12 @@ def _(mo):
        car le SOH peut remonter legerement (>100%) lors des cycles lents de check-up.
     3. **SOH < 1%** : artefacts de fin de test (decharge totale). Les batteries reellement mortes (<80%)
        restent dans le dataset jusqu'a leur dernier cycle utile.
-    4. **Cycles lents (check-up ts les 100 cycles)** : detection par `Cycle_Time > 3 * median(Cycle_Time)`.
-       Ces cycles durent ~18h au lieu de ~2.4h et font artificiellement monter le SOH de +4-5%.
+    4. **Dernier cycle** : retire pour chaque batterie (artefact de fin de test, souvent SOH=0 ou aberrant).
+    5. **Cycles lents (check-up ts les 100 cycles)** : detection par `Avg_Charge_Current < median/6`.
+       Le courant de charge est divise par ~8-10 pendant les check-ups, ce qui fait remonter le SOH de +4-5%.
        ZERO cycle de recuperation apres : le retour a la normale est immediat.
-    5. **DCIR (optionnel)** : detection par `Cycle_Time > 2 * median(Cycle_Time)` pour les batteries
-       avec protocole "w/ DCIR". Ces cycles intermediaires durent ~9h et creent du bruit supplementaire.
+    6. **DCIR (optionnel)** : detection par `Avg_Charge_Current < median/3` pour les batteries
+       avec protocole "w/ DCIR". Ces cycles intermediaires creent du bruit supplementaire.
 
     **Deux versions du dataset nettoye** :
     - `df_clean_slow` : filtres 1-4 uniquement (cycles normaux + check-up retires)
@@ -375,34 +377,44 @@ def _(mo):
 
 @app.cell
 def _(df_raw):
-    """Filtrer cycles lents + DCIR + outliers SOH"""
+    """Filtrer : courant lent + dernier cycle + outliers SOH"""
     def flag_cycles(grp):
-        med_ct = grp['Cycle_Time (h)'].median()
-        grp['is_slow'] = grp['Cycle_Time (h)'] > 3 * med_ct
-        grp['is_anomaly'] = grp['Cycle_Time (h)'] > 2 * med_ct
-        return grp
+        grp_sorted = grp.sort_values('Cycle')
+        # Detection par courant: courant < median/6 (expert: facteur ~10 sur 1C-1D)
+        med_cur = grp_sorted['Avg_Charge_Current (A)'].median()
+        grp_sorted['is_slow'] = grp_sorted['Avg_Charge_Current (A)'] < med_cur / 6
+        # Anomalies: courant < median/3 (inclut slow + DCIR)
+        grp_sorted['is_anomaly'] = grp_sorted['Avg_Charge_Current (A)'] < med_cur / 3
+        # Dernier cycle de chaque batterie
+        last_cycle = grp_sorted['Cycle'].max()
+        grp_sorted['is_last'] = grp_sorted['Cycle'] == last_cycle
+        return grp_sorted
 
     df_f = df_raw.groupby('Cell_Name', group_keys=False).apply(flag_cycles)
 
-    # Filtrer cycle 0, SOH hors plage, cycles anormaux
+    # Filtrer cycle 0, SOH hors plage, dernier cycle, cycles anormaux
     df_f = df_f[df_f['Cycle'] > 0]
     df_f = df_f[df_f['SOH_Energy (%)'].between(1, 130)]
 
     n_tot = len(df_raw)
     n_slow = df_f['is_slow'].sum()
     n_anom = df_f['is_anomaly'].sum()
+    n_last = df_f['is_last'].sum()
     n_cycle0 = (df_raw['Cycle'] == 0).sum()
     n_outliers = ((df_raw['Cycle'] > 0) & (~df_raw['SOH_Energy (%)'].between(1, 130))).sum()
 
-    df_clean_slow = df_f[~df_f['is_slow']].drop(columns=['is_slow', 'is_anomaly'])
-    df_clean_all = df_f[~df_f['is_anomaly']].drop(columns=['is_slow', 'is_anomaly'])
+    # clean_slow: retire cycle 0, SOH outliers, dernier cycle, slow cycles
+    df_clean_slow = df_f[~(df_f['is_slow'] | df_f['is_last'])].drop(columns=['is_slow', 'is_anomaly', 'is_last'])
+    # clean_all: idem + DCIR
+    df_clean_all = df_f[~(df_f['is_anomaly'] | df_f['is_last'])].drop(columns=['is_slow', 'is_anomaly', 'is_last'])
 
-    print(f"Dataset original            : {n_tot} lignes")
-    print(f"  Cycle 0 retire            : {n_cycle0}")
-    print(f"  SOH hors [1,130] retire   : {n_outliers}")
-    print(f"  Cycles lents (3x med)     : {n_slow} -> df_clean_slow ({len(df_clean_slow)})")
-    print(f"  Anomalies (2x med)        : {n_anom} -> df_clean_all  ({len(df_clean_all)})")
-    print(f"    dont DCIR seuls         : {n_anom - n_slow}")
+    print(f"Dataset original           : {n_tot} lignes")
+    print(f"  Cycle 0 retire           : {n_cycle0}")
+    print(f"  SOH hors [1,130] retire  : {n_outliers}")
+    print(f"  Dernier cycle retire     : {n_last}")
+    print(f"  Courant lent (med/6)     : {n_slow} -> df_clean_slow ({len(df_clean_slow)})")
+    print(f"  Anomalies (med/3)        : {n_anom} -> df_clean_all  ({len(df_clean_all)})")
+    print(f"    dont DCIR seuls        : {n_anom - n_slow}")
     return df_clean_all, df_clean_slow
 
 
@@ -525,10 +537,11 @@ def _(mo):
 
     Filtres appliques a `df_clean_all` :
     - Cycle 0 supprime (SOH=0 par definition)
+    - Dernier cycle de chaque batterie supprime (artefact fin de test)
     - SOH < 1% supprime (artefact de decharge totale en fin de test)
     - SOH > 130% supprime (artefact de mesure, ex SOH=458%)
-    - Cycles lents (3x mediane du Cycle_Time) supprimes
-    - DCIR (2x mediane du Cycle_Time) supprimes
+    - Cycles lents (Avg_Charge_Current < median/6) supprimes
+    - DCIR (Avg_Charge_Current < median/3) supprimes
 
     Soit 93,138 lignes conservees sur 95,467 (-2.4%).
     """)
