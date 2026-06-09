@@ -521,7 +521,16 @@ def _(df_clean_slow, plt):
 @app.cell
 def _(mo):
     mo.md("""
-    ## 5. Trajectoires par setup + C-rate (donnees sans anomalies)
+    ## 5. Trajectoires par setup + C-rate (donnees `df_clean_all`)
+
+    Filtres appliques a `df_clean_all` :
+    - Cycle 0 supprime (SOH=0 par definition)
+    - SOH < 1% supprime (artefact de decharge totale en fin de test)
+    - SOH > 130% supprime (artefact de mesure, ex SOH=458%)
+    - Cycles lents (3x mediane du Cycle_Time) supprimes
+    - DCIR (2x mediane du Cycle_Time) supprimes
+
+    Soit 93,138 lignes conservees sur 95,467 (-2.4%).
     """)
     return
 
