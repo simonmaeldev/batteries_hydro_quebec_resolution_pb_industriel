@@ -302,6 +302,8 @@ def _(mo):
 
     **Traitement** : detection par `Cycle_Time > 3 * median(Cycle_Time)` pour chaque batterie, puis suppression des cycles lents.
     ZERO cycle de recuperation a ignorer -- la batterie revient a son etat normal des le cycle suivant.
+
+    **Autres filtres** : cycle 0 retire (SOH=0), SOH hors [1%, 130%] retire (artefacts de mesure).
     """)
     return
 
@@ -349,8 +351,31 @@ def _(df_raw, plt):
 
 
 @app.cell
+def _(mo):
+    mo.md("""
+    **Recapitulatif des filtres appliques**
+
+    1. **Cycle 0** : retire car SOH=0 par definition (cycle de reference avant le vrai test).
+    2. **SOH > 130%** : artefacts de mesure aberrants (ex: SOH=458%). On garde une marge au-dessus de 100%
+       car le SOH peut remonter legerement (>100%) lors des cycles lents de check-up.
+    3. **SOH < 1%** : artefacts de fin de test (decharge totale). Les batteries reellement mortes (<80%)
+       restent dans le dataset jusqu'a leur dernier cycle utile.
+    4. **Cycles lents (check-up ts les 100 cycles)** : detection par `Cycle_Time > 3 * median(Cycle_Time)`.
+       Ces cycles durent ~18h au lieu de ~2.4h et font artificiellement monter le SOH de +4-5%.
+       ZERO cycle de recuperation apres : le retour a la normale est immediat.
+    5. **DCIR (optionnel)** : detection par `Cycle_Time > 2 * median(Cycle_Time)` pour les batteries
+       avec protocole "w/ DCIR". Ces cycles intermediaires durent ~9h et creent du bruit supplementaire.
+
+    **Deux versions du dataset nettoye** :
+    - `df_clean_slow` : filtres 1-4 uniquement (cycles normaux + check-up retires)
+    - `df_clean_all` : filtres 1-5 (check-up + DCIR retires)
+    """)
+    return
+
+
+@app.cell
 def _(df_raw):
-    """Filtrer les cycles lents + DCIR"""
+    """Filtrer cycles lents + DCIR + outliers SOH"""
     def flag_cycles(grp):
         med_ct = grp['Cycle_Time (h)'].median()
         grp['is_slow'] = grp['Cycle_Time (h)'] > 3 * med_ct
@@ -359,18 +384,26 @@ def _(df_raw):
 
     df_f = df_raw.groupby('Cell_Name', group_keys=False).apply(flag_cycles)
 
-    n_tot = len(df_f)
+    # Filtrer cycle 0, SOH hors plage, cycles anormaux
+    df_f = df_f[df_f['Cycle'] > 0]
+    df_f = df_f[df_f['SOH_Energy (%)'].between(1, 130)]
+
+    n_tot = len(df_raw)
     n_slow = df_f['is_slow'].sum()
     n_anom = df_f['is_anomaly'].sum()
+    n_cycle0 = (df_raw['Cycle'] == 0).sum()
+    n_outliers = ((df_raw['Cycle'] > 0) & (~df_raw['SOH_Energy (%)'].between(1, 130))).sum()
 
     df_clean_slow = df_f[~df_f['is_slow']].drop(columns=['is_slow', 'is_anomaly'])
     df_clean_all = df_f[~df_f['is_anomaly']].drop(columns=['is_slow', 'is_anomaly'])
 
-    print(f"Dataset original : {n_tot} lignes")
-    print(f"Cycles lents (3x med) : {n_slow} ({n_slow/n_tot*100:.1f}%) -> df_clean_slow ({len(df_clean_slow)})")
-    print(f"Anomalies (2x med)    : {n_anom} ({n_anom/n_tot*100:.1f}%) -> df_clean_all  ({len(df_clean_all)})")
-    print(f"Dont DCIR: {n_anom - n_slow}")
-    return (df_clean_all, df_clean_slow)
+    print(f"Dataset original            : {n_tot} lignes")
+    print(f"  Cycle 0 retire            : {n_cycle0}")
+    print(f"  SOH hors [1,130] retire   : {n_outliers}")
+    print(f"  Cycles lents (3x med)     : {n_slow} -> df_clean_slow ({len(df_clean_slow)})")
+    print(f"  Anomalies (2x med)        : {n_anom} -> df_clean_all  ({len(df_clean_all)})")
+    print(f"    dont DCIR seuls         : {n_anom - n_slow}")
+    return df_clean_all, df_clean_slow
 
 
 @app.cell
@@ -487,7 +520,9 @@ def _(df_clean_slow, plt):
 
 @app.cell
 def _(mo):
-    mo.md("## 5. Trajectoires par setup + C-rate (donnees sans anomalies)")
+    mo.md("""
+    ## 5. Trajectoires par setup + C-rate (donnees sans anomalies)
+    """)
     return
 
 
