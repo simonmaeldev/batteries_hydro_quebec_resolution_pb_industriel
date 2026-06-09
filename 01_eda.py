@@ -326,6 +326,89 @@ def _(df_raw, plt):
 
 @app.cell
 def _(mo):
+    mo.md("## Annexe : Cycles lents (check-up)")
+    return
+
+
+@app.cell
+def _(df_raw, plt, np):
+    """Montrer l'effet des cycles lents sur SOH, Discharge_Capacity, Polarization"""
+    pol_col = 'Polarization (Ohm cm\u00b2)'
+
+    cell_sl = 'SAL241202I'
+    sub_sl = df_raw[df_raw['Cell_Name'] == cell_sl].sort_values('Cycle').copy()
+
+    median_ct_sl = sub_sl['Cycle_Time (h)'].median()
+    sub_sl['is_slow'] = sub_sl['Cycle_Time (h)'] > 3 * median_ct_sl
+    slow_cycles = sub_sl[sub_sl['is_slow']]['Cycle'].astype(int).values
+
+    fig_slow, axs_slow = plt.subplots(3, 1, figsize=(14, 10), sharex=True)
+
+    # SOH
+    ax_s0 = axs_slow[0]
+    ax_s0.plot(sub_sl['Cycle'], sub_sl['SOH_Energy (%)'], 'b-', linewidth=0.8, alpha=0.5)
+    ax_s0.scatter(sub_sl.loc[sub_sl['is_slow'], 'Cycle'], sub_sl.loc[sub_sl['is_slow'], 'SOH_Energy (%)'],
+              color='red', s=20, zorder=5, label=f'Cycles lents (n={len(slow_cycles)})')
+    ax_s0.axhline(y=80, color='gray', linestyle='--', alpha=0.4)
+    ax_s0.set_ylabel('SOH_Energy (%)')
+    ax_s0.set_title(f'{cell_sl} - Effet des cycles lents sur SOH')
+    ax_s0.legend()
+
+    # Discharge_Capacity
+    ax_s1 = axs_slow[1]
+    ax_s1.plot(sub_sl['Cycle'], sub_sl['Discharge_Capacity (mAh)'], 'b-', linewidth=0.8, alpha=0.5)
+    ax_s1.scatter(sub_sl.loc[sub_sl['is_slow'], 'Cycle'], sub_sl.loc[sub_sl['is_slow'], 'Discharge_Capacity (mAh)'],
+              color='red', s=20, zorder=5)
+    ax_s1.set_ylabel('Discharge_Capacity (mAh)')
+    ax_s1.set_title('Discharge Capacity')
+
+    # Polarization
+    ax_s2 = axs_slow[2]
+    ax_s2.plot(sub_sl['Cycle'], sub_sl[pol_col], 'b-', linewidth=0.8, alpha=0.5)
+    ax_s2.scatter(sub_sl.loc[sub_sl['is_slow'], 'Cycle'], sub_sl.loc[sub_sl['is_slow'], pol_col],
+              color='red', s=20, zorder=5)
+    ax_s2.set_xlabel('Cycle')
+    ax_s2.set_ylabel('Polarization')
+    ax_s2.set_title('Polarization')
+
+    plt.tight_layout()
+    plt.gca()
+    return
+
+
+@app.cell
+def _(df_raw, np, pd):
+    """Filtrer les cycles lents du dataset"""
+    pol_col_f = 'Polarization (Ohm cm\u00b2)'
+
+    # Seuil par batterie: Cycle_Time > 3x la mediane
+    def flag_slow(grp):
+        median_ct = grp['Cycle_Time (h)'].median()
+        grp['is_slow_cycle'] = grp['Cycle_Time (h)'] > 3 * median_ct
+        return grp
+
+    df_flagged = df_raw.groupby('Cell_Name', group_keys=False).apply(flag_slow)
+
+    n_before = len(df_flagged)
+    n_slow = df_flagged['is_slow_cycle'].sum()
+    df_clean_slow = df_flagged[~df_flagged['is_slow_cycle']].drop(columns=['is_slow_cycle'])
+    n_after = len(df_clean_slow)
+
+    print(f'Dataset original : {n_before} lignes')
+    print(f'Cycles lents retires : {n_slow} ({n_slow/n_before*100:.1f}%)')
+    print(f'Dataset nettoye : {n_after} lignes')
+    print()
+
+    # Stats par batterie
+    slow_stats = df_flagged[df_flagged['is_slow_cycle']].groupby('Cell_Name').size().reset_index(name='n_slow')
+    print(f'Batteries concernees : {len(slow_stats)} / {df_raw["Cell_Name"].nunique()}')
+    print(f'Moyenne de cycles lents : {slow_stats["n_slow"].mean():.1f} par batterie')
+    print(f'Max : {slow_stats["n_slow"].max()}')
+    return df_clean_slow,
+
+
+@app.cell
+def _(mo):
     mo.md("""
     ## 3. Relations entre predicteurs et SOH
     """)
