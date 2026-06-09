@@ -1,11 +1,11 @@
 import marimo
 
-__generated_with = "0.12.7"
+__generated_with = "0.23.9"
 app = marimo.App()
 
 
 @app.cell
-def __():
+def _():
     import marimo as mo
     import pandas as pd
     import numpy as np
@@ -17,31 +17,37 @@ def __():
 
 
 @app.cell
-def __(mo):
-    mo.md("# Analyse exploratoire - Batteries Hydro-Quebec\n\nPrediction de duree de vie residuelle (RUL) a partir des cycles de charge/decharge.")
+def _(mo):
+    mo.md("""
+    # Analyse exploratoire - Batteries Hydro-Quebec
+
+    Prediction de duree de vie residuelle (RUL) a partir des cycles de charge/decharge.
+    """)
     return
 
 
 @app.cell
-def __(mo):
-    mo.md("## 1. Chargement et inspection des donnees brutes")
+def _(mo):
+    mo.md("""
+    ## 1. Chargement et inspection des donnees brutes
+    """)
     return
 
 
 @app.cell
-def __(pd):
+def _(pd):
     df_raw = pd.read_csv('all_batteries_combined.csv')
-    return df_raw,
+    return (df_raw,)
 
 
 @app.cell
-def __(df_raw):
+def _(df_raw):
     df_raw.info(show_counts=True)
     return
 
 
 @app.cell
-def __(df_raw, mo):
+def _(df_raw, mo):
     n_cells_1 = df_raw['Cell_Name'].nunique()
     n_proj_1 = df_raw['Project'].nunique()
     n_chem_1 = df_raw['Chemistry'].nunique()
@@ -51,7 +57,7 @@ def __(df_raw, mo):
 
 
 @app.cell
-def __(df_raw, mo, pd):
+def _(df_raw, mo, pd):
     nulls_1 = df_raw.isnull().sum()
     zeros_1 = (df_raw == 0).sum()
     tbl_nulls = pd.DataFrame({'nulls': nulls_1, 'zeros': zeros_1, 'dtype': df_raw.dtypes}).sort_values('nulls', ascending=False)
@@ -64,7 +70,7 @@ def __(df_raw, mo, pd):
 
 
 @app.cell
-def __(df_raw, mo, pd):
+def _(df_raw, mo, pd):
     cat_cols_1 = ['Project', 'Cell_Name', 'Chemistry', 'Cut-off', 'Temperature', 'C-rate']
     tabs_1 = {
         c: mo.ui.table(pd.DataFrame({'valeur': df_raw[c].value_counts().index, 'compte': df_raw[c].value_counts().values}))
@@ -102,32 +108,34 @@ def _(df_raw, np, pd, plt):
     plt.suptitle('Distribution des predicteurs par tranche de SOH', fontsize=14)
     plt.tight_layout()
     plt.gca()
-    return num_cols_1,
+    return (num_cols_1,)
 
 
 @app.cell
-def __(df_raw, mo, num_cols_1):
+def _(df_raw, mo, num_cols_1):
     stats_1 = df_raw[num_cols_1].describe(percentiles=[0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99]).T
     mo.ui.table(stats_1)
     return
 
 
 @app.cell
-def __(mo):
-    mo.md("## 2. Patterns de degradation (SOH)")
+def _(mo):
+    mo.md("""
+    ## 2. Patterns de degradation (SOH)
+    """)
     return
 
 
 @app.cell
-def __(df_raw, mo):
+def _(df_raw, mo):
     soh_by_cycle = df_raw.groupby('Cycle')['SOH_Energy (%)'].agg(['mean', 'std', 'min', 'max', 'count']).reset_index()
     soh_by_cycle = soh_by_cycle[soh_by_cycle['count'] > 5]
     mo.ui.table(soh_by_cycle.head(20))
-    return soh_by_cycle,
+    return (soh_by_cycle,)
 
 
 @app.cell
-def __(plt, soh_by_cycle):
+def _(plt, soh_by_cycle):
     fig_soh, ax_soh = plt.subplots(figsize=(14, 5))
     ax_soh.plot(soh_by_cycle['Cycle'], soh_by_cycle['mean'], 'b-', linewidth=1)
     ax_soh.fill_between(soh_by_cycle['Cycle'],
@@ -146,7 +154,7 @@ def __(plt, soh_by_cycle):
 
 
 @app.cell
-def __(df_raw, plt):
+def _(df_raw, plt):
     chem_list = sorted(df_raw['Chemistry'].unique())
     fig_chem, axs_chem = plt.subplots(1, 3, figsize=(18, 5))
     for ax_c, chem_c in zip(axs_chem, chem_list):
@@ -166,7 +174,7 @@ def __(df_raw, plt):
 
 
 @app.cell
-def __(df_raw, plt):
+def _(df_raw, plt):
     temp_list = sorted(df_raw['Temperature'].unique())
     fig_temp, axs_temp = plt.subplots(1, 3, figsize=(18, 5))
     for ax_t, temp_t in zip(axs_temp, temp_list):
@@ -186,7 +194,7 @@ def __(df_raw, plt):
 
 
 @app.cell
-def __(df_raw, plt):
+def _(df_raw, plt):
     crate_list = sorted(df_raw['C-rate'].unique())
     fig_cr, axs_cr = plt.subplots(2, 4, figsize=(20, 10))
     axs_cr = axs_cr.flatten()
@@ -208,13 +216,15 @@ def __(df_raw, plt):
 
 
 @app.cell
-def __(mo):
-    mo.md("## 3. Relations entre predicteurs et SOH (donnees brutes)")
+def _(mo):
+    mo.md("""
+    ## 3. Relations entre predicteurs et SOH (donnees brutes)
+    """)
     return
 
 
 @app.cell
-def __(df_raw, np, num_cols_1, plt, sns):
+def _(df_raw, np, num_cols_1, plt, sns):
     corr_cols_3 = num_cols_1 + ['Cycle']
     corr_3 = df_raw[corr_cols_3].replace(0, np.nan).corr()
 
@@ -223,18 +233,18 @@ def __(df_raw, np, num_cols_1, plt, sns):
     ax_corr.set_title('Matrice de correlation (donnees brutes)')
     plt.tight_layout()
     plt.gca()
-    return corr_3,
+    return (corr_3,)
 
 
 @app.cell
-def __(corr_3, mo, pd):
+def _(corr_3, mo, pd):
     soh_corr_3 = corr_3['SOH_Energy (%)'].drop('SOH_Energy (%)').sort_values(ascending=False)
     mo.ui.table(pd.DataFrame({'correlation avec SOH': soh_corr_3}))
     return
 
 
 @app.cell
-def __(df_raw, plt):
+def _(df_raw, plt):
     key_preds_3 = ['Cycle', 'Avg_Discharge_Voltage (V)', 'Avg_Charge_Voltage (V)',
                    'Discharge_Capacity (mAh)', 'Charge_Capacity (mAh)',
                    'Polarization (Ohm cm\u00b2)', 'Coulomb_Efficiency (%)']
@@ -254,7 +264,7 @@ def __(df_raw, plt):
 
 
 @app.cell
-def __(df_raw, plt):
+def _(df_raw, plt):
     cycle_preds_3 = ['Discharge_Capacity (mAh)', 'Avg_Discharge_Voltage (V)',
                      'Polarization (Ohm cm\u00b2)', 'Coulomb_Efficiency (%)']
 
@@ -274,13 +284,15 @@ def __(df_raw, plt):
 
 
 @app.cell
-def __(mo):
-    mo.md("## Annexe : Nettoyage des cycles lents (check-up tous les 100 cycles)")
+def _(mo):
+    mo.md("""
+    ## Annexe : Nettoyage des cycles lents (check-up tous les 100 cycles)
+    """)
     return
 
 
 @app.cell
-def __(mo):
+def _(mo):
     mo.md("""
     **Pourquoi ?** Tous les ~100 cycles, le protocole de test impose un cycle de charge/decharge tres lent (~18h au lieu de ~2.4h).
     Ce cycle lent fait artificiellement remonter le SOH de ~4-5% et fait x2.5 la Polarization. Des le cycle suivant, tout revient a la normale.
@@ -295,7 +307,7 @@ def __(mo):
 
 
 @app.cell
-def _(df_raw, plt, np):
+def _(df_raw, plt):
     pol_col = 'Polarization (Ohm cm\u00b2)'
 
     cell_sl = 'SAL241202I'
@@ -337,38 +349,40 @@ def _(df_raw, plt, np):
 
 
 @app.cell
-def _(df_raw, np, pd):
-    """Filtrer les cycles lents du dataset"""
-    def flag_slow(grp):
+def _(df_raw):
+    """Filtrer les cycles lents + DCIR"""
+    def flag_cycles(grp):
         med_ct = grp['Cycle_Time (h)'].median()
-        grp['is_slow_cycle'] = grp['Cycle_Time (h)'] > 3 * med_ct
+        grp['is_slow'] = grp['Cycle_Time (h)'] > 3 * med_ct
+        grp['is_anomaly'] = grp['Cycle_Time (h)'] > 2 * med_ct
         return grp
 
-    df_flagged = df_raw.groupby('Cell_Name', group_keys=False).apply(flag_slow)
+    df_f = df_raw.groupby('Cell_Name', group_keys=False).apply(flag_cycles)
 
-    n_before = len(df_flagged)
-    n_slow = df_flagged['is_slow_cycle'].sum()
-    df_clean_slow = df_flagged[~df_flagged['is_slow_cycle']].drop(columns=['is_slow_cycle'])
-    n_after = len(df_clean_slow)
+    n_tot = len(df_f)
+    n_slow = df_f['is_slow'].sum()
+    n_anom = df_f['is_anomaly'].sum()
 
-    slow_stats = df_flagged[df_flagged['is_slow_cycle']].groupby('Cell_Name').size().reset_index(name='n_slow')
+    df_clean_slow = df_f[~df_f['is_slow']].drop(columns=['is_slow', 'is_anomaly'])
+    df_clean_all = df_f[~df_f['is_anomaly']].drop(columns=['is_slow', 'is_anomaly'])
 
-    print(f"Dataset original : {n_before} lignes")
-    print(f"Cycles lents retires : {n_slow} ({n_slow/n_before*100:.1f}%)")
-    print(f"Dataset nettoye : {n_after} lignes")
-    print(f"Batteries concernees : {len(slow_stats)} / {df_raw['Cell_Name'].nunique()}")
-    print(f"Moyenne : {slow_stats['n_slow'].mean():.1f} par batterie, max : {slow_stats['n_slow'].max()}")
-    return df_clean_slow,
+    print(f"Dataset original : {n_tot} lignes")
+    print(f"Cycles lents (3x med) : {n_slow} ({n_slow/n_tot*100:.1f}%) -> df_clean_slow ({len(df_clean_slow)})")
+    print(f"Anomalies (2x med)    : {n_anom} ({n_anom/n_tot*100:.1f}%) -> df_clean_all  ({len(df_clean_all)})")
+    print(f"Dont DCIR: {n_anom - n_slow}")
+    return (df_clean_all, df_clean_slow)
 
 
 @app.cell
-def __(mo):
-    mo.md("## 4. Trajectoires moyennes par setup (donnees nettoyees)")
+def _(mo):
+    mo.md("""
+    ## 4. Trajectoires moyennes par setup (donnees nettoyees)
+    """)
     return
 
 
 @app.cell
-def _(df_clean_slow, plt, pd):
+def _(df_clean_slow, plt):
     col_load_c = 'CAM_Loading (mg/cm\u00b2)'
 
     cs_c = df_clean_slow.groupby('Cell_Name').agg({
@@ -406,7 +420,7 @@ def _(df_clean_slow, plt, pd):
 
 
 @app.cell
-def _(df_clean_slow, plt, pd):
+def _(df_clean_slow, plt):
     col_load_g = 'CAM_Loading (mg/cm\u00b2)'
 
     cs_g = df_clean_slow.groupby('Cell_Name').agg({
