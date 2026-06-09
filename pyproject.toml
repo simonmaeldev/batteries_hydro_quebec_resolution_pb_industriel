@@ -1,0 +1,17 @@
+[project]
+name = "batteries-hydro-quebec-resolution-pb-industriel"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "duckdb>=1.5.3",
+    "lifelines>=0.30.3",
+    "marimo>=0.23.9",
+    "matplotlib>=3.10.9",
+    "numpy>=2.4.6",
+    "openpyxl>=3.1.0",
+    "pandas>=2.3.3",
+    "scikit-learn>=1.9.0",
+    "scipy>=1.17.1",
+    "seaborn>=0.13.2",
+    "statsmodels>=0.14.6",
+]

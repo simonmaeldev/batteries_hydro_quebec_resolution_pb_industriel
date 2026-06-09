@@ -1,0 +1,17 @@
+# Sensitive data - NEVER commit
+all_batteries_combined.csv
+Summary/
+*.xlsx
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Marimo session cache
+__marimo__/
+
+# OS
+.DS_Store
+Thumbs.db
