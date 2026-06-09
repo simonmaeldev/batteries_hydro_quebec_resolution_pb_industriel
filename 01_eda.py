@@ -1,11 +1,11 @@
 import marimo
 
-__generated_with = "0.23.9"
+__generated_with = "0.12.7"
 app = marimo.App()
 
 
 @app.cell
-def _():
+def __():
     import marimo as mo
     import pandas as pd
     import numpy as np
@@ -17,37 +17,31 @@ def _():
 
 
 @app.cell
-def _(mo):
-    mo.md("""
-    # Analyse exploratoire - Batteries Hydro-Quebec
-
-    Prediction de duree de vie residuelle (RUL) a partir des cycles de charge/decharge.
-    """)
+def __(mo):
+    mo.md("# Analyse exploratoire - Batteries Hydro-Quebec\n\nPrediction de duree de vie residuelle (RUL) a partir des cycles de charge/decharge.")
     return
 
 
 @app.cell
-def _(mo):
-    mo.md("""
-    ## 1. Chargement et inspection des donnees brutes
-    """)
+def __(mo):
+    mo.md("## 1. Chargement et inspection des donnees brutes")
     return
 
 
 @app.cell
-def _(pd):
+def __(pd):
     df_raw = pd.read_csv('all_batteries_combined.csv')
-    return (df_raw,)
+    return df_raw,
 
 
 @app.cell
-def _(df_raw):
+def __(df_raw):
     df_raw.info(show_counts=True)
     return
 
 
 @app.cell
-def _(df_raw, mo):
+def __(df_raw, mo):
     n_cells_1 = df_raw['Cell_Name'].nunique()
     n_proj_1 = df_raw['Project'].nunique()
     n_chem_1 = df_raw['Chemistry'].nunique()
@@ -57,7 +51,7 @@ def _(df_raw, mo):
 
 
 @app.cell
-def _(df_raw, mo, pd):
+def __(df_raw, mo, pd):
     nulls_1 = df_raw.isnull().sum()
     zeros_1 = (df_raw == 0).sum()
     tbl_nulls = pd.DataFrame({'nulls': nulls_1, 'zeros': zeros_1, 'dtype': df_raw.dtypes}).sort_values('nulls', ascending=False)
@@ -70,7 +64,7 @@ def _(df_raw, mo, pd):
 
 
 @app.cell
-def _(df_raw, mo, pd):
+def __(df_raw, mo, pd):
     cat_cols_1 = ['Project', 'Cell_Name', 'Chemistry', 'Cut-off', 'Temperature', 'C-rate']
     tabs_1 = {
         c: mo.ui.table(pd.DataFrame({'valeur': df_raw[c].value_counts().index, 'compte': df_raw[c].value_counts().values}))
@@ -108,34 +102,32 @@ def _(df_raw, np, pd, plt):
     plt.suptitle('Distribution des predicteurs par tranche de SOH', fontsize=14)
     plt.tight_layout()
     plt.gca()
-    return (num_cols_1,)
+    return num_cols_1,
 
 
 @app.cell
-def _(df_raw, mo, num_cols_1):
+def __(df_raw, mo, num_cols_1):
     stats_1 = df_raw[num_cols_1].describe(percentiles=[0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99]).T
     mo.ui.table(stats_1)
     return
 
 
 @app.cell
-def _(mo):
-    mo.md("""
-    ## 2. Patterns de degradation (SOH)
-    """)
+def __(mo):
+    mo.md("## 2. Patterns de degradation (SOH)")
     return
 
 
 @app.cell
-def _(df_raw, mo):
+def __(df_raw, mo):
     soh_by_cycle = df_raw.groupby('Cycle')['SOH_Energy (%)'].agg(['mean', 'std', 'min', 'max', 'count']).reset_index()
     soh_by_cycle = soh_by_cycle[soh_by_cycle['count'] > 5]
     mo.ui.table(soh_by_cycle.head(20))
-    return (soh_by_cycle,)
+    return soh_by_cycle,
 
 
 @app.cell
-def _(plt, soh_by_cycle):
+def __(plt, soh_by_cycle):
     fig_soh, ax_soh = plt.subplots(figsize=(14, 5))
     ax_soh.plot(soh_by_cycle['Cycle'], soh_by_cycle['mean'], 'b-', linewidth=1)
     ax_soh.fill_between(soh_by_cycle['Cycle'],
@@ -146,7 +138,7 @@ def _(plt, soh_by_cycle):
     ax_soh.axhline(y=50, color='orange', linestyle='--', alpha=0.7, label='Seuil 50%')
     ax_soh.set_xlabel('Cycle')
     ax_soh.set_ylabel('SOH_Energy (%)')
-    ax_soh.set_title('Evolution moyenne du SOH par cycle (mean +/- std, attention: biais de selection aux cycles eleves)')
+    ax_soh.set_title('Evolution moyenne du SOH par cycle (mean +/- std)')
     ax_soh.legend()
     ax_soh.set_xlim(0, soh_by_cycle['Cycle'].max())
     plt.gca()
@@ -154,7 +146,7 @@ def _(plt, soh_by_cycle):
 
 
 @app.cell
-def _(df_raw, plt):
+def __(df_raw, plt):
     chem_list = sorted(df_raw['Chemistry'].unique())
     fig_chem, axs_chem = plt.subplots(1, 3, figsize=(18, 5))
     for ax_c, chem_c in zip(axs_chem, chem_list):
@@ -174,7 +166,7 @@ def _(df_raw, plt):
 
 
 @app.cell
-def _(df_raw, plt):
+def __(df_raw, plt):
     temp_list = sorted(df_raw['Temperature'].unique())
     fig_temp, axs_temp = plt.subplots(1, 3, figsize=(18, 5))
     for ax_t, temp_t in zip(axs_temp, temp_list):
@@ -194,7 +186,7 @@ def _(df_raw, plt):
 
 
 @app.cell
-def _(df_raw, plt):
+def __(df_raw, plt):
     crate_list = sorted(df_raw['C-rate'].unique())
     fig_cr, axs_cr = plt.subplots(2, 4, figsize=(20, 10))
     axs_cr = axs_cr.flatten()
@@ -216,227 +208,33 @@ def _(df_raw, plt):
 
 
 @app.cell
-def _(mo):
-    mo.md("""
-    **Trajectoire moyenne SOH par setup** (Temperature | Chemistry | CAM_Loading) -- toutes les courbes ensemble
-    """)
+def __(mo):
+    mo.md("## 3. Relations entre predicteurs et SOH (donnees brutes)")
     return
 
 
 @app.cell
-def _(df_raw, plt):
-    col_load = 'CAM_Loading (mg/cm\u00b2)'
-
-    cs = df_raw.groupby('Cell_Name').agg({
-        'Temperature': 'first', 'Chemistry': 'first', col_load: 'first',
-    }).reset_index()
-    cs['setup'] = (cs['Temperature'] + ' | ' + cs['Chemistry'] + ' | load=' + cs[col_load].astype(str))
-    sc = cs['setup'].value_counts()
-    so = sc.index.tolist()
-    sm = cs.set_index('Cell_Name')['setup'].to_dict()
-
-    dp = df_raw.copy()
-    dp['setup'] = dp['Cell_Name'].map(sm)
-
-    # Echantillonner 1 point / 20 cycles par cellule pour le nuage
-    dp_sample = dp[dp['Cycle'] % 20 == 0].copy()
-
-    fig_all, ax_all = plt.subplots(figsize=(14, 8))
-
-    # Nuage de points en bleu clair (tous les setups melanges)
-    ax_all.scatter(dp_sample['Cycle'], dp_sample['SOH_Energy (%)'],
-                  s=0.5, alpha=0.15, color='cornflowerblue', rasterized=True)
-
-    for sn in so:
-        nc = sc[sn]
-        sub = dp[dp['setup'] == sn]
-        ms = sub.groupby('Cycle')['SOH_Energy (%)'].mean()
-        ax_all.plot(ms.index, ms.values, label=f'{sn} (n={nc})', linewidth=1.5)
-
-    ax_all.axhline(y=80, color='red', linestyle='--', alpha=0.5)
-    ax_all.set_xlabel('Cycle')
-    ax_all.set_ylabel('SOH_Energy (%)')
-    ax_all.set_title('Trajectoire moyenne SOH par setup (Temperature | Chemistry | CAM Loading)')
-    ax_all.set_xlim(0, 3000)
-    ax_all.legend(fontsize=8, loc='upper right')
-    plt.tight_layout()
-    plt.gca()
-    return
-
-
-@app.cell
-def _(mo):
-    mo.md("""
-    **Meme donnees, un sous-graphe par setup**
-    """)
-    return
-
-
-@app.cell
-def _(df_raw, plt):
-    col_load2 = 'CAM_Loading (mg/cm\u00b2)'
-
-    cs2 = df_raw.groupby('Cell_Name').agg({
-        'Temperature': 'first', 'Chemistry': 'first', col_load2: 'first',
-    }).reset_index()
-    cs2['setup2'] = (cs2['Temperature'] + ' | ' + cs2['Chemistry'] + ' | load=' + cs2[col_load2].astype(str))
-    sc2 = cs2['setup2'].value_counts()
-    so2 = sc2.index.tolist()
-    sm2 = cs2.set_index('Cell_Name')['setup2'].to_dict()
-
-    dp2 = df_raw.copy()
-    dp2['setup2'] = dp2['Cell_Name'].map(sm2)
-
-    n_set2 = len(so2)
-    n_cols2 = 4
-    n_rows2 = (n_set2 + n_cols2 - 1) // n_cols2
-
-    fig_grid, axs_grid = plt.subplots(n_rows2, n_cols2, figsize=(20, 4 * n_rows2))
-    axs_grid = axs_grid.flatten()
-
-    # Echantillonner 1 point / 20 cycles par cellule pour le nuage
-    dp2_sample = dp2[dp2['Cycle'] % 20 == 0].copy()
-
-    for i2, sn2 in enumerate(so2):
-        ax2 = axs_grid[i2]
-        nc2 = sc2[sn2]
-
-        # Nuage de points individuels en bleu clair
-        sub_samp = dp2_sample[dp2_sample['setup2'] == sn2]
-        ax2.scatter(sub_samp['Cycle'], sub_samp['SOH_Energy (%)'],
-                   s=0.5, alpha=0.3, color='cornflowerblue', rasterized=True)
-
-        sub2 = dp2[dp2['setup2'] == sn2]
-        ms2 = sub2.groupby('Cycle')['SOH_Energy (%)'].mean()
-        ax2.plot(ms2.index, ms2.values, linewidth=1.5)
-        ax2.axhline(y=80, color='red', linestyle='--', alpha=0.4)
-        ax2.set_title(f'{sn2}\n(n={nc2})', fontsize=9)
-        ax2.set_xlabel('Cycle', fontsize=7)
-        ax2.set_ylabel('SOH (%)', fontsize=7)
-        ax2.set_xlim(0, 3000)
-        ax2.tick_params(labelsize=7)
-
-    for j2 in range(i2 + 1, len(axs_grid)):
-        axs_grid[j2].set_visible(False)
-
-    plt.tight_layout()
-    plt.gca()
-    return
-
-
-@app.cell
-def _(mo):
-    mo.md("## Annexe : Cycles lents (check-up)")
-    return
-
-
-@app.cell
-def _(df_raw, plt, np):
-    """Montrer l'effet des cycles lents sur SOH, Discharge_Capacity, Polarization"""
-    pol_col = 'Polarization (Ohm cm\u00b2)'
-
-    cell_sl = 'SAL241202I'
-    sub_sl = df_raw[df_raw['Cell_Name'] == cell_sl].sort_values('Cycle').copy()
-
-    median_ct_sl = sub_sl['Cycle_Time (h)'].median()
-    sub_sl['is_slow'] = sub_sl['Cycle_Time (h)'] > 3 * median_ct_sl
-    slow_cycles = sub_sl[sub_sl['is_slow']]['Cycle'].astype(int).values
-
-    fig_slow, axs_slow = plt.subplots(3, 1, figsize=(14, 10), sharex=True)
-
-    # SOH
-    ax_s0 = axs_slow[0]
-    ax_s0.plot(sub_sl['Cycle'], sub_sl['SOH_Energy (%)'], 'b-', linewidth=0.8, alpha=0.5)
-    ax_s0.scatter(sub_sl.loc[sub_sl['is_slow'], 'Cycle'], sub_sl.loc[sub_sl['is_slow'], 'SOH_Energy (%)'],
-              color='red', s=20, zorder=5, label=f'Cycles lents (n={len(slow_cycles)})')
-    ax_s0.axhline(y=80, color='gray', linestyle='--', alpha=0.4)
-    ax_s0.set_ylabel('SOH_Energy (%)')
-    ax_s0.set_title(f'{cell_sl} - Effet des cycles lents sur SOH')
-    ax_s0.legend()
-
-    # Discharge_Capacity
-    ax_s1 = axs_slow[1]
-    ax_s1.plot(sub_sl['Cycle'], sub_sl['Discharge_Capacity (mAh)'], 'b-', linewidth=0.8, alpha=0.5)
-    ax_s1.scatter(sub_sl.loc[sub_sl['is_slow'], 'Cycle'], sub_sl.loc[sub_sl['is_slow'], 'Discharge_Capacity (mAh)'],
-              color='red', s=20, zorder=5)
-    ax_s1.set_ylabel('Discharge_Capacity (mAh)')
-    ax_s1.set_title('Discharge Capacity')
-
-    # Polarization
-    ax_s2 = axs_slow[2]
-    ax_s2.plot(sub_sl['Cycle'], sub_sl[pol_col], 'b-', linewidth=0.8, alpha=0.5)
-    ax_s2.scatter(sub_sl.loc[sub_sl['is_slow'], 'Cycle'], sub_sl.loc[sub_sl['is_slow'], pol_col],
-              color='red', s=20, zorder=5)
-    ax_s2.set_xlabel('Cycle')
-    ax_s2.set_ylabel('Polarization')
-    ax_s2.set_title('Polarization')
-
-    plt.tight_layout()
-    plt.gca()
-    return
-
-
-@app.cell
-def _(df_raw, np, pd):
-    """Filtrer les cycles lents du dataset"""
-    pol_col_f = 'Polarization (Ohm cm\u00b2)'
-
-    # Seuil par batterie: Cycle_Time > 3x la mediane
-    def flag_slow(grp):
-        median_ct = grp['Cycle_Time (h)'].median()
-        grp['is_slow_cycle'] = grp['Cycle_Time (h)'] > 3 * median_ct
-        return grp
-
-    df_flagged = df_raw.groupby('Cell_Name', group_keys=False).apply(flag_slow)
-
-    n_before = len(df_flagged)
-    n_slow = df_flagged['is_slow_cycle'].sum()
-    df_clean_slow = df_flagged[~df_flagged['is_slow_cycle']].drop(columns=['is_slow_cycle'])
-    n_after = len(df_clean_slow)
-
-    print(f'Dataset original : {n_before} lignes')
-    print(f'Cycles lents retires : {n_slow} ({n_slow/n_before*100:.1f}%)')
-    print(f'Dataset nettoye : {n_after} lignes')
-    print()
-
-    # Stats par batterie
-    slow_stats = df_flagged[df_flagged['is_slow_cycle']].groupby('Cell_Name').size().reset_index(name='n_slow')
-    print(f'Batteries concernees : {len(slow_stats)} / {df_raw["Cell_Name"].nunique()}')
-    print(f'Moyenne de cycles lents : {slow_stats["n_slow"].mean():.1f} par batterie')
-    print(f'Max : {slow_stats["n_slow"].max()}')
-    return df_clean_slow,
-
-
-@app.cell
-def _(mo):
-    mo.md("""
-    ## 3. Relations entre predicteurs et SOH
-    """)
-    return
-
-
-@app.cell
-def _(df_raw, np, num_cols_1, plt, sns):
+def __(df_raw, np, num_cols_1, plt, sns):
     corr_cols_3 = num_cols_1 + ['Cycle']
     corr_3 = df_raw[corr_cols_3].replace(0, np.nan).corr()
 
     fig_corr, ax_corr = plt.subplots(figsize=(10, 8))
     sns.heatmap(corr_3, annot=True, fmt='.2f', cmap='RdBu_r', center=0, square=True, ax=ax_corr, cbar_kws={'shrink': 0.8})
-    ax_corr.set_title('Matrice de correlation')
+    ax_corr.set_title('Matrice de correlation (donnees brutes)')
     plt.tight_layout()
     plt.gca()
-    return (corr_3,)
+    return corr_3,
 
 
 @app.cell
-def _(corr_3, mo, pd):
+def __(corr_3, mo, pd):
     soh_corr_3 = corr_3['SOH_Energy (%)'].drop('SOH_Energy (%)').sort_values(ascending=False)
     mo.ui.table(pd.DataFrame({'correlation avec SOH': soh_corr_3}))
     return
 
 
 @app.cell
-def _(df_raw, plt):
+def __(df_raw, plt):
     key_preds_3 = ['Cycle', 'Avg_Discharge_Voltage (V)', 'Avg_Charge_Voltage (V)',
                    'Discharge_Capacity (mAh)', 'Charge_Capacity (mAh)',
                    'Polarization (Ohm cm\u00b2)', 'Coulomb_Efficiency (%)']
@@ -456,7 +254,7 @@ def _(df_raw, plt):
 
 
 @app.cell
-def _(df_raw, plt):
+def __(df_raw, plt):
     cycle_preds_3 = ['Discharge_Capacity (mAh)', 'Avg_Discharge_Voltage (V)',
                      'Polarization (Ohm cm\u00b2)', 'Coulomb_Efficiency (%)']
 
@@ -470,6 +268,187 @@ def _(df_raw, plt):
         ax_ev.set_xlabel('Cycle')
         ax_ev.set_ylabel(pred_ev)
         ax_ev.legend()
+    plt.tight_layout()
+    plt.gca()
+    return
+
+
+@app.cell
+def __(mo):
+    mo.md("## Annexe : Nettoyage des cycles lents (check-up tous les 100 cycles)")
+    return
+
+
+@app.cell
+def __(mo):
+    mo.md("""
+    **Pourquoi ?** Tous les ~100 cycles, le protocole de test impose un cycle de charge/decharge tres lent (~18h au lieu de ~2.4h).
+    Ce cycle lent fait artificiellement remonter le SOH de ~4-5% et fait x2.5 la Polarization. Des le cycle suivant, tout revient a la normale.
+
+    **Impact** : 1122 cycles lents identifies sur les 157 batteries (7.1 en moyenne, max 27 pour SAL241202I). Ces cycles creent un bruit
+    parasite dans les donnees et surestiment la sante reelle de la batterie a ces moments-la.
+
+    **Traitement** : detection par `Cycle_Time > 3 * median(Cycle_Time)` pour chaque batterie, puis suppression des cycles lents.
+    ZERO cycle de recuperation a ignorer -- la batterie revient a son etat normal des le cycle suivant.
+    """)
+    return
+
+
+@app.cell
+def _(df_raw, plt, np):
+    pol_col = 'Polarization (Ohm cm\u00b2)'
+
+    cell_sl = 'SAL241202I'
+    sub_sl = df_raw[df_raw['Cell_Name'] == cell_sl].sort_values('Cycle').copy()
+
+    median_ct_sl = sub_sl['Cycle_Time (h)'].median()
+    sub_sl['is_slow'] = sub_sl['Cycle_Time (h)'] > 3 * median_ct_sl
+    slow_cycles = sub_sl[sub_sl['is_slow']]['Cycle'].astype(int).values
+
+    fig_slow, axs_slow = plt.subplots(3, 1, figsize=(14, 10), sharex=True)
+
+    ax_s0 = axs_slow[0]
+    ax_s0.plot(sub_sl['Cycle'], sub_sl['SOH_Energy (%)'], 'b-', linewidth=0.8, alpha=0.5)
+    ax_s0.scatter(sub_sl.loc[sub_sl['is_slow'], 'Cycle'], sub_sl.loc[sub_sl['is_slow'], 'SOH_Energy (%)'],
+              color='red', s=20, zorder=5, label=f'Cycles lents (n={len(slow_cycles)})')
+    ax_s0.axhline(y=80, color='gray', linestyle='--', alpha=0.4)
+    ax_s0.set_ylabel('SOH_Energy (%)')
+    ax_s0.set_title(f'{cell_sl} - Effet des cycles lents sur SOH (max slow cycles: 27)')
+    ax_s0.legend()
+
+    ax_s1 = axs_slow[1]
+    ax_s1.plot(sub_sl['Cycle'], sub_sl['Discharge_Capacity (mAh)'], 'b-', linewidth=0.8, alpha=0.5)
+    ax_s1.scatter(sub_sl.loc[sub_sl['is_slow'], 'Cycle'], sub_sl.loc[sub_sl['is_slow'], 'Discharge_Capacity (mAh)'],
+              color='red', s=20, zorder=5)
+    ax_s1.set_ylabel('Discharge_Capacity (mAh)')
+    ax_s1.set_title('Discharge Capacity')
+
+    ax_s2 = axs_slow[2]
+    ax_s2.plot(sub_sl['Cycle'], sub_sl[pol_col], 'b-', linewidth=0.8, alpha=0.5)
+    ax_s2.scatter(sub_sl.loc[sub_sl['is_slow'], 'Cycle'], sub_sl.loc[sub_sl['is_slow'], pol_col],
+              color='red', s=20, zorder=5)
+    ax_s2.set_xlabel('Cycle')
+    ax_s2.set_ylabel('Polarization')
+    ax_s2.set_title('Polarization')
+
+    plt.tight_layout()
+    plt.gca()
+    return
+
+
+@app.cell
+def _(df_raw, np, pd):
+    """Filtrer les cycles lents du dataset"""
+    def flag_slow(grp):
+        med_ct = grp['Cycle_Time (h)'].median()
+        grp['is_slow_cycle'] = grp['Cycle_Time (h)'] > 3 * med_ct
+        return grp
+
+    df_flagged = df_raw.groupby('Cell_Name', group_keys=False).apply(flag_slow)
+
+    n_before = len(df_flagged)
+    n_slow = df_flagged['is_slow_cycle'].sum()
+    df_clean_slow = df_flagged[~df_flagged['is_slow_cycle']].drop(columns=['is_slow_cycle'])
+    n_after = len(df_clean_slow)
+
+    slow_stats = df_flagged[df_flagged['is_slow_cycle']].groupby('Cell_Name').size().reset_index(name='n_slow')
+
+    print(f"Dataset original : {n_before} lignes")
+    print(f"Cycles lents retires : {n_slow} ({n_slow/n_before*100:.1f}%)")
+    print(f"Dataset nettoye : {n_after} lignes")
+    print(f"Batteries concernees : {len(slow_stats)} / {df_raw['Cell_Name'].nunique()}")
+    print(f"Moyenne : {slow_stats['n_slow'].mean():.1f} par batterie, max : {slow_stats['n_slow'].max()}")
+    return df_clean_slow,
+
+
+@app.cell
+def __(mo):
+    mo.md("## 4. Trajectoires moyennes par setup (donnees nettoyees)")
+    return
+
+
+@app.cell
+def _(df_clean_slow, plt, pd):
+    col_load_c = 'CAM_Loading (mg/cm\u00b2)'
+
+    cs_c = df_clean_slow.groupby('Cell_Name').agg({
+        'Temperature': 'first', 'Chemistry': 'first', col_load_c: 'first',
+    }).reset_index()
+    cs_c['setup_c'] = (cs_c['Temperature'] + ' | ' + cs_c['Chemistry'] + ' | load=' + cs_c[col_load_c].astype(str))
+    sc_c = cs_c['setup_c'].value_counts()
+    so_c = sc_c.index.tolist()
+    sm_c = cs_c.set_index('Cell_Name')['setup_c'].to_dict()
+
+    dp_c = df_clean_slow.copy()
+    dp_c['setup_c'] = dp_c['Cell_Name'].map(sm_c)
+
+    dp_c_sample = dp_c[dp_c['Cycle'] % 20 == 0].copy()
+
+    fig_all_c, ax_all_c = plt.subplots(figsize=(14, 8))
+    ax_all_c.scatter(dp_c_sample['Cycle'], dp_c_sample['SOH_Energy (%)'],
+                  s=0.5, alpha=0.15, color='cornflowerblue', rasterized=True)
+
+    for sn_c in so_c:
+        nc_c = sc_c[sn_c]
+        sub_c_d = dp_c[dp_c['setup_c'] == sn_c]
+        ms_c = sub_c_d.groupby('Cycle')['SOH_Energy (%)'].mean()
+        ax_all_c.plot(ms_c.index, ms_c.values, label=f'{sn_c} (n={nc_c})', linewidth=1.5)
+
+    ax_all_c.axhline(y=80, color='red', linestyle='--', alpha=0.5)
+    ax_all_c.set_xlabel('Cycle')
+    ax_all_c.set_ylabel('SOH_Energy (%)')
+    ax_all_c.set_title('Trajectoire moyenne SOH par setup (donnees nettoyees des cycles lents)')
+    ax_all_c.set_xlim(0, 3000)
+    ax_all_c.legend(fontsize=8, loc='upper right')
+    plt.tight_layout()
+    plt.gca()
+    return
+
+
+@app.cell
+def _(df_clean_slow, plt, pd):
+    col_load_g = 'CAM_Loading (mg/cm\u00b2)'
+
+    cs_g = df_clean_slow.groupby('Cell_Name').agg({
+        'Temperature': 'first', 'Chemistry': 'first', col_load_g: 'first',
+    }).reset_index()
+    cs_g['setup_g'] = (cs_g['Temperature'] + ' | ' + cs_g['Chemistry'] + ' | load=' + cs_g[col_load_g].astype(str))
+    sc_g = cs_g['setup_g'].value_counts()
+    so_g = sc_g.index.tolist()
+    sm_g = cs_g.set_index('Cell_Name')['setup_g'].to_dict()
+
+    dp_g = df_clean_slow.copy()
+    dp_g['setup_g'] = dp_g['Cell_Name'].map(sm_g)
+    dp_g_sample = dp_g[dp_g['Cycle'] % 20 == 0].copy()
+
+    n_set_g = len(so_g)
+    n_cols_g = 4
+    n_rows_g = (n_set_g + n_cols_g - 1) // n_cols_g
+
+    fig_grid_g, axs_grid_g = plt.subplots(n_rows_g, n_cols_g, figsize=(20, 4 * n_rows_g))
+    axs_grid_g = axs_grid_g.flatten()
+
+    for i_g, sn_g in enumerate(so_g):
+        ax_g = axs_grid_g[i_g]
+        nc_g = sc_g[sn_g]
+
+        sub_samp_g = dp_g_sample[dp_g_sample['setup_g'] == sn_g]
+        ax_g.scatter(sub_samp_g['Cycle'], sub_samp_g['SOH_Energy (%)'],
+                   s=0.5, alpha=0.3, color='cornflowerblue', rasterized=True)
+
+        sub_g = dp_g[dp_g['setup_g'] == sn_g]
+        ms_g = sub_g.groupby('Cycle')['SOH_Energy (%)'].mean()
+        ax_g.plot(ms_g.index, ms_g.values, linewidth=1.5)
+        ax_g.axhline(y=80, color='red', linestyle='--', alpha=0.4)
+        ax_g.set_title(f'{sn_g}\n(n={nc_g})', fontsize=9)
+        ax_g.set_xlabel('Cycle', fontsize=7)
+        ax_g.set_ylabel('SOH (%)', fontsize=7)
+        ax_g.set_xlim(0, 3000)
+        ax_g.tick_params(labelsize=7)
+
+    for j_g in range(i_g + 1, len(axs_grid_g)):
+        axs_grid_g[j_g].set_visible(False)
+
     plt.tight_layout()
     plt.gca()
     return
