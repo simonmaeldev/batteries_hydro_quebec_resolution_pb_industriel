@@ -83,7 +83,6 @@ def _(df_raw, np, pd, plt):
         'Coulomb_Efficiency (%)', 'SOH_Energy (%)', 'Polarization (Ohm cm\u00b2)',
     ]
 
-    # Boxplots par tranche de SOH pour chaque predicteur
     df_box = df_raw.replace(0, np.nan).copy()
     bins_soh = [0, 50, 80, 90, 95, 100, 130]
     labels_soh = ['<50%', '50-80%', '80-90%', '90-95%', '95-100%', '>100%']
@@ -211,44 +210,87 @@ def __(df_raw, plt):
 
 @app.cell
 def __(mo):
-    mo.md("**Moyenne SOH par setup** : Temperature | Chemistry | CAM_Loading. Chaque courbe = moyenne de toutes les cellules partageant le meme setup.")
+    mo.md("**Trajectoire moyenne SOH par setup** (Temperature | Chemistry | CAM_Loading) -- toutes les courbes ensemble")
     return
 
 
 @app.cell
 def _(df_raw, plt, pd):
-    loading_col = 'CAM_Loading (mg/cm\u00b2)'
+    col_load = 'CAM_Loading (mg/cm\u00b2)'
 
-    cell_setup = df_raw.groupby('Cell_Name').agg({
-        'Temperature': 'first',
-        'Chemistry': 'first',
-        loading_col: 'first',
+    cs = df_raw.groupby('Cell_Name').agg({
+        'Temperature': 'first', 'Chemistry': 'first', col_load: 'first',
     }).reset_index()
-    cell_setup['setup'] = (cell_setup['Temperature'] + ' | ' +
-                           cell_setup['Chemistry'] + ' | load=' +
-                           cell_setup[loading_col].astype(str))
+    cs['setup'] = (cs['Temperature'] + ' | ' + cs['Chemistry'] + ' | load=' + cs[col_load].astype(str))
+    sc = cs['setup'].value_counts()
+    so = sc.index.tolist()
+    sm = cs.set_index('Cell_Name')['setup'].to_dict()
 
-    setup_counts = cell_setup['setup'].value_counts()
-    setup_order = setup_counts.index.tolist()
+    dp = df_raw.copy()
+    dp['setup'] = dp['Cell_Name'].map(sm)
 
-    setup_map = cell_setup.set_index('Cell_Name')['setup'].to_dict()
-    df_plot = df_raw.copy()
-    df_plot['setup'] = df_plot['Cell_Name'].map(setup_map)
+    fig_all, ax_all = plt.subplots(figsize=(14, 8))
+    for sn in so:
+        nc = sc[sn]
+        sub = dp[dp['setup'] == sn]
+        ms = sub.groupby('Cycle')['SOH_Energy (%)'].mean()
+        ax_all.plot(ms.index, ms.values, label=f'{sn} (n={nc})', linewidth=1.5)
 
-    fig_setup, ax_setup = plt.subplots(figsize=(14, 8))
-    for setup_name in setup_order:
-        n_cells = setup_counts[setup_name]
-        sub = df_plot[df_plot['setup'] == setup_name]
-        mean_soh = sub.groupby('Cycle')['SOH_Energy (%)'].mean()
-        ax_setup.plot(mean_soh.index, mean_soh.values,
-                     label=f'{setup_name} (n={n_cells})', linewidth=1.5)
+    ax_all.axhline(y=80, color='red', linestyle='--', alpha=0.5)
+    ax_all.set_xlabel('Cycle')
+    ax_all.set_ylabel('SOH_Energy (%)')
+    ax_all.set_title('Trajectoire moyenne SOH par setup (Temperature | Chemistry | CAM Loading)')
+    ax_all.set_xlim(0, 3000)
+    ax_all.legend(fontsize=8, loc='upper right')
+    plt.tight_layout()
+    plt.gca()
+    return
 
-    ax_setup.axhline(y=80, color='red', linestyle='--', alpha=0.5)
-    ax_setup.set_xlabel('Cycle')
-    ax_setup.set_ylabel('SOH_Energy (%)')
-    ax_setup.set_title('Trajectoire moyenne de SOH par setup (Temperature | Chemistry | CAM Loading)')
-    ax_setup.set_xlim(0, 3000)
-    ax_setup.legend(fontsize=8, loc='upper right')
+
+@app.cell
+def __(mo):
+    mo.md("**Meme donnees, un sous-graphe par setup**")
+    return
+
+
+@app.cell
+def _(df_raw, plt, pd):
+    col_load2 = 'CAM_Loading (mg/cm\u00b2)'
+
+    cs2 = df_raw.groupby('Cell_Name').agg({
+        'Temperature': 'first', 'Chemistry': 'first', col_load2: 'first',
+    }).reset_index()
+    cs2['setup2'] = (cs2['Temperature'] + ' | ' + cs2['Chemistry'] + ' | load=' + cs2[col_load2].astype(str))
+    sc2 = cs2['setup2'].value_counts()
+    so2 = sc2.index.tolist()
+    sm2 = cs2.set_index('Cell_Name')['setup2'].to_dict()
+
+    dp2 = df_raw.copy()
+    dp2['setup2'] = dp2['Cell_Name'].map(sm2)
+
+    n_set2 = len(so2)
+    n_cols2 = 4
+    n_rows2 = (n_set2 + n_cols2 - 1) // n_cols2
+
+    fig_grid, axs_grid = plt.subplots(n_rows2, n_cols2, figsize=(20, 4 * n_rows2))
+    axs_grid = axs_grid.flatten()
+
+    for i2, sn2 in enumerate(so2):
+        ax2 = axs_grid[i2]
+        nc2 = sc2[sn2]
+        sub2 = dp2[dp2['setup2'] == sn2]
+        ms2 = sub2.groupby('Cycle')['SOH_Energy (%)'].mean()
+        ax2.plot(ms2.index, ms2.values, linewidth=1.5)
+        ax2.axhline(y=80, color='red', linestyle='--', alpha=0.4)
+        ax2.set_title(f'{sn2}\n(n={nc2})', fontsize=9)
+        ax2.set_xlabel('Cycle', fontsize=7)
+        ax2.set_ylabel('SOH (%)', fontsize=7)
+        ax2.set_xlim(0, 3000)
+        ax2.tick_params(labelsize=7)
+
+    for j2 in range(i2 + 1, len(axs_grid)):
+        axs_grid[j2].set_visible(False)
+
     plt.tight_layout()
     plt.gca()
     return
