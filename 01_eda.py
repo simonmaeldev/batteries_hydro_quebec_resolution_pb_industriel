@@ -402,11 +402,21 @@ def _(df_clean_slow, plt):
     ax_all_c.scatter(dp_c_sample['Cycle'], dp_c_sample['SOH_Energy (%)'],
                   s=0.5, alpha=0.15, color='cornflowerblue', rasterized=True)
 
+    # Calculer les dropouts: cycles ou des cellules meurent
+    alive_c = dp_c.groupby(['setup_c', 'Cycle'])['Cell_Name'].nunique().reset_index()
+    alive_c['drop'] = alive_c.groupby('setup_c')['Cell_Name'].diff()
+    drop_cycles_c = alive_c[alive_c['drop'] < 0]['Cycle'].unique()
+
     for sn_c in so_c:
         nc_c = sc_c[sn_c]
         sub_c_d = dp_c[dp_c['setup_c'] == sn_c]
         ms_c = sub_c_d.groupby('Cycle')['SOH_Energy (%)'].mean()
         ax_all_c.plot(ms_c.index, ms_c.values, label=f'{sn_c} (n={nc_c})', linewidth=1.5)
+
+    # Lignes verticales aux dropouts
+    y_min_c, y_max_c = ax_all_c.get_ylim()
+    for dc_c in drop_cycles_c:
+        ax_all_c.axvline(x=dc_c, color='gray', linestyle=':', alpha=0.3, linewidth=0.5)
 
     ax_all_c.axhline(y=80, color='red', linestyle='--', alpha=0.5)
     ax_all_c.set_xlabel('Cycle')
@@ -453,6 +463,13 @@ def _(df_clean_slow, plt):
         sub_g = dp_g[dp_g['setup_g'] == sn_g]
         ms_g = sub_g.groupby('Cycle')['SOH_Energy (%)'].mean()
         ax_g.plot(ms_g.index, ms_g.values, linewidth=1.5)
+
+        # Lignes de dropout pour ce setup
+        alive_g = sub_g.groupby('Cycle')['Cell_Name'].nunique()
+        drops_g = alive_g[alive_g.diff() < 0]
+        for dc_g in drops_g.index:
+            ax_g.axvline(x=dc_g, color='gray', linestyle=':', alpha=0.3, linewidth=0.5)
+
         ax_g.axhline(y=80, color='red', linestyle='--', alpha=0.4)
         ax_g.set_title(f'{sn_g}\n(n={nc_g})', fontsize=9)
         ax_g.set_xlabel('Cycle', fontsize=7)
@@ -462,6 +479,113 @@ def _(df_clean_slow, plt):
 
     for j_g in range(i_g + 1, len(axs_grid_g)):
         axs_grid_g[j_g].set_visible(False)
+
+    plt.tight_layout()
+    plt.gca()
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md("## 5. Trajectoires par setup + C-rate (donnees sans anomalies)")
+    return
+
+
+@app.cell
+def _(df_clean_all, plt):
+    col_l_5 = 'CAM_Loading (mg/cm\u00b2)'
+
+    cs_5 = df_clean_all.groupby('Cell_Name').agg({
+        'Temperature': 'first', 'Chemistry': 'first', col_l_5: 'first', 'C-rate': 'first',
+    }).reset_index()
+    cs_5['setup_5'] = (cs_5['Temperature'] + ' | ' + cs_5['Chemistry'] + ' | load=' +
+                       cs_5[col_l_5].astype(str) + ' | ' + cs_5['C-rate'])
+    sc_5 = cs_5['setup_5'].value_counts()
+    so_5 = sc_5.index.tolist()
+    sm_5 = cs_5.set_index('Cell_Name')['setup_5'].to_dict()
+
+    dp_5 = df_clean_all.copy()
+    dp_5['setup_5'] = dp_5['Cell_Name'].map(sm_5)
+    dp_5_samp = dp_5[dp_5['Cycle'] % 20 == 0].copy()
+
+    alive_5 = dp_5.groupby(['setup_5', 'Cycle'])['Cell_Name'].nunique().reset_index()
+    alive_5['drop_5'] = alive_5.groupby('setup_5')['Cell_Name'].diff()
+    drop_cycles_5 = alive_5[alive_5['drop_5'] < 0]['Cycle'].unique()
+
+    fig_5, ax_5 = plt.subplots(figsize=(14, 8))
+    ax_5.scatter(dp_5_samp['Cycle'], dp_5_samp['SOH_Energy (%)'],
+                  s=0.5, alpha=0.15, color='cornflowerblue', rasterized=True)
+
+    for sn_5 in so_5:
+        nc_5 = sc_5[sn_5]
+        sub_5 = dp_5[dp_5['setup_5'] == sn_5]
+        ms_5 = sub_5.groupby('Cycle')['SOH_Energy (%)'].mean()
+        ax_5.plot(ms_5.index, ms_5.values, label=f'{sn_5} (n={nc_5})', linewidth=1.5)
+
+    for dc_5 in drop_cycles_5:
+        ax_5.axvline(x=dc_5, color='gray', linestyle=':', alpha=0.3, linewidth=0.5)
+
+    ax_5.axhline(y=80, color='red', linestyle='--', alpha=0.5)
+    ax_5.set_xlabel('Cycle')
+    ax_5.set_ylabel('SOH_Energy (%)')
+    ax_5.set_title('Trajectoire moyenne SOH par setup + C-rate (donnees sans anomalies)')
+    ax_5.set_xlim(0, 3000)
+    ax_5.legend(fontsize=7, loc='upper right')
+    plt.tight_layout()
+    plt.gca()
+    return
+
+
+@app.cell
+def _(df_clean_all, plt):
+    col_l_g = 'CAM_Loading (mg/cm\u00b2)'
+
+    cs_g2 = df_clean_all.groupby('Cell_Name').agg({
+        'Temperature': 'first', 'Chemistry': 'first', col_l_g: 'first', 'C-rate': 'first',
+    }).reset_index()
+    cs_g2['setup_g2'] = (cs_g2['Temperature'] + ' | ' + cs_g2['Chemistry'] + ' | load=' +
+                         cs_g2[col_l_g].astype(str) + ' | ' + cs_g2['C-rate'])
+    sc_g2 = cs_g2['setup_g2'].value_counts()
+    so_g2 = sc_g2.index.tolist()
+    sm_g2 = cs_g2.set_index('Cell_Name')['setup_g2'].to_dict()
+
+    dp_g2 = df_clean_all.copy()
+    dp_g2['setup_g2'] = dp_g2['Cell_Name'].map(sm_g2)
+    dp_g2_samp = dp_g2[dp_g2['Cycle'] % 20 == 0].copy()
+
+    n_set_g2 = len(so_g2)
+    n_cols_g2 = 4
+    n_rows_g2 = (n_set_g2 + n_cols_g2 - 1) // n_cols_g2
+
+    fig_g2, axs_g2 = plt.subplots(n_rows_g2, n_cols_g2, figsize=(20, 4 * n_rows_g2))
+    axs_g2 = axs_g2.flatten()
+
+    for i_g2, sn_g2 in enumerate(so_g2):
+        ax_g2 = axs_g2[i_g2]
+        nc_g2 = sc_g2[sn_g2]
+
+        sub_samp_g2 = dp_g2_samp[dp_g2_samp['setup_g2'] == sn_g2]
+        ax_g2.scatter(sub_samp_g2['Cycle'], sub_samp_g2['SOH_Energy (%)'],
+                     s=0.5, alpha=0.3, color='cornflowerblue', rasterized=True)
+
+        sub_g2 = dp_g2[dp_g2['setup_g2'] == sn_g2]
+        ms_g2 = sub_g2.groupby('Cycle')['SOH_Energy (%)'].mean()
+        ax_g2.plot(ms_g2.index, ms_g2.values, linewidth=1.5)
+
+        alive_g2 = sub_g2.groupby('Cycle')['Cell_Name'].nunique()
+        drops_g2 = alive_g2[alive_g2.diff() < 0]
+        for dc_g2 in drops_g2.index:
+            ax_g2.axvline(x=dc_g2, color='gray', linestyle=':', alpha=0.3, linewidth=0.5)
+
+        ax_g2.axhline(y=80, color='red', linestyle='--', alpha=0.4)
+        ax_g2.set_title(f'{sn_g2}\n(n={nc_g2})', fontsize=8)
+        ax_g2.set_xlabel('Cycle', fontsize=7)
+        ax_g2.set_ylabel('SOH (%)', fontsize=7)
+        ax_g2.set_xlim(0, 3000)
+        ax_g2.tick_params(labelsize=7)
+
+    for j_g2 in range(i_g2 + 1, len(axs_g2)):
+        axs_g2[j_g2].set_visible(False)
 
     plt.tight_layout()
     plt.gca()
