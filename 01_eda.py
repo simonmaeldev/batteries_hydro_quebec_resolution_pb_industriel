@@ -1,11 +1,11 @@
 import marimo
 
-__generated_with = "0.23.9"
+__generated_with = "0.12.7"
 app = marimo.App()
 
 
 @app.cell
-def _():
+def __():
     import marimo as mo
     import pandas as pd
     import numpy as np
@@ -18,37 +18,31 @@ def _():
 
 
 @app.cell
-def _(mo):
-    mo.md("""
-    # Analyse exploratoire - Batteries Hydro-Quebec
-
-    Prediction de duree de vie residuelle (RUL) a partir des cycles de charge/decharge.
-    """)
+def __(mo):
+    mo.md("# Analyse exploratoire - Batteries Hydro-Quebec\n\nPrediction de duree de vie residuelle (RUL) a partir des cycles de charge/decharge.")
     return
 
 
 @app.cell
-def _(mo):
-    mo.md("""
-    ## 1. Chargement et inspection des donnees brutes
-    """)
+def __(mo):
+    mo.md("## 1. Chargement et inspection des donnees brutes")
     return
 
 
 @app.cell
-def _(pd):
+def __(pd):
     df_raw = pd.read_csv('all_batteries_combined.csv')
-    return (df_raw,)
+    return df_raw,
 
 
 @app.cell
-def _(df_raw):
+def __(df_raw):
     df_raw.info(show_counts=True)
     return
 
 
 @app.cell
-def _(df_raw, mo):
+def __(df_raw, mo):
     n_cells_1 = df_raw['Cell_Name'].nunique()
     n_proj_1 = df_raw['Project'].nunique()
     n_chem_1 = df_raw['Chemistry'].nunique()
@@ -58,7 +52,7 @@ def _(df_raw, mo):
 
 
 @app.cell
-def _(df_raw, mo, pd):
+def __(df_raw, mo, pd):
     nulls_1 = df_raw.isnull().sum()
     zeros_1 = (df_raw == 0).sum()
     tbl_nulls = pd.DataFrame({'nulls': nulls_1, 'zeros': zeros_1, 'dtype': df_raw.dtypes}).sort_values('nulls', ascending=False)
@@ -71,9 +65,12 @@ def _(df_raw, mo, pd):
 
 
 @app.cell
-def _(df_raw, mo, pd):
+def __(df_raw, mo, pd):
     cat_cols_1 = ['Project', 'Cell_Name', 'Chemistry', 'Cut-off', 'Temperature', 'C-rate']
-    tabs_1 = {c: mo.ui.table(pd.DataFrame({'valeur': df_raw[c].value_counts().index, 'compte': df_raw[c].value_counts().values})) for c in cat_cols_1}
+    tabs_1 = {
+        c: mo.ui.table(pd.DataFrame({'valeur': df_raw[c].value_counts().index, 'compte': df_raw[c].value_counts().values}))
+        for c in cat_cols_1
+    }
     mo.ui.tabs(tabs_1)
     return
 
@@ -107,42 +104,43 @@ def _(df_raw, np, pd, plt):
     plt.suptitle('Distribution des predicteurs par tranche de SOH', fontsize=14)
     plt.tight_layout()
     plt.gca()
-    return (num_cols_1,)
+    return num_cols_1,
 
 
 @app.cell
-def _(df_raw, mo, num_cols_1):
+def __(df_raw, mo, num_cols_1):
     stats_1 = df_raw[num_cols_1].describe(percentiles=[0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99]).T
     mo.ui.table(stats_1)
     return
 
 
 @app.cell
-def _(mo):
-    mo.md("""
-    ## 2. Patterns de degradation (SOH)
-    """)
+def __(mo):
+    mo.md("## 2. Patterns de degradation (SOH)")
     return
 
 
 @app.cell
-def _(df_raw, mo):
+def __(df_raw, mo):
     soh_by_cycle = df_raw.groupby('Cycle')['SOH_Energy (%)'].agg(['mean', 'std', 'min', 'max', 'count']).reset_index()
     soh_by_cycle = soh_by_cycle[soh_by_cycle['count'] > 5]
     mo.ui.table(soh_by_cycle.head(20))
-    return (soh_by_cycle,)
+    return soh_by_cycle,
 
 
 @app.cell
-def _(plt, soh_by_cycle):
+def __(plt, soh_by_cycle):
     fig_soh, ax_soh = plt.subplots(figsize=(14, 5))
     ax_soh.plot(soh_by_cycle['Cycle'], soh_by_cycle['mean'], 'b-', linewidth=1)
-    ax_soh.fill_between(soh_by_cycle['Cycle'], soh_by_cycle['mean'] - soh_by_cycle['std'], soh_by_cycle['mean'] + soh_by_cycle['std'], alpha=0.2, color='blue')
+    ax_soh.fill_between(soh_by_cycle['Cycle'],
+                         soh_by_cycle['mean'] - soh_by_cycle['std'],
+                         soh_by_cycle['mean'] + soh_by_cycle['std'],
+                         alpha=0.2, color='blue')
     ax_soh.axhline(y=80, color='red', linestyle='--', alpha=0.7, label='Seuil 80%')
     ax_soh.axhline(y=50, color='orange', linestyle='--', alpha=0.7, label='Seuil 50%')
     ax_soh.set_xlabel('Cycle')
     ax_soh.set_ylabel('SOH_Energy (%)')
-    ax_soh.set_title('Evolution moyenne du SOH par cycle')
+    ax_soh.set_title('Evolution moyenne du SOH par cycle (mean +/- std, attention: biais de selection aux cycles eleves)')
     ax_soh.legend()
     ax_soh.set_xlim(0, soh_by_cycle['Cycle'].max())
     plt.gca()
@@ -150,7 +148,7 @@ def _(plt, soh_by_cycle):
 
 
 @app.cell
-def _(df_raw, plt):
+def __(df_raw, plt):
     chem_list = sorted(df_raw['Chemistry'].unique())
     fig_chem, axs_chem = plt.subplots(1, 3, figsize=(18, 5))
     for ax_c, chem_c in zip(axs_chem, chem_list):
@@ -170,7 +168,7 @@ def _(df_raw, plt):
 
 
 @app.cell
-def _(df_raw, plt):
+def __(df_raw, plt):
     temp_list = sorted(df_raw['Temperature'].unique())
     fig_temp, axs_temp = plt.subplots(1, 3, figsize=(18, 5))
     for ax_t, temp_t in zip(axs_temp, temp_list):
@@ -190,7 +188,7 @@ def _(df_raw, plt):
 
 
 @app.cell
-def _(df_raw, plt):
+def __(df_raw, plt):
     crate_list = sorted(df_raw['C-rate'].unique())
     fig_cr, axs_cr = plt.subplots(2, 4, figsize=(20, 10))
     axs_cr = axs_cr.flatten()
@@ -212,10 +210,15 @@ def _(df_raw, plt):
 
 
 @app.cell
+def __(mo):
+    mo.md("**Moyenne SOH par setup** : Temperature | Chemistry | CAM_Loading. Chaque courbe = moyenne de toutes les cellules partageant le meme setup.")
+    return
+
+
+@app.cell
 def _(df_raw, plt, pd):
     loading_col = 'CAM_Loading (mg/cm\u00b2)'
 
-    # Definir le setup par cellule
     cell_setup = df_raw.groupby('Cell_Name').agg({
         'Temperature': 'first',
         'Chemistry': 'first',
@@ -225,18 +228,14 @@ def _(df_raw, plt, pd):
                            cell_setup['Chemistry'] + ' | load=' +
                            cell_setup[loading_col].astype(str))
 
-    # Trier par nombre de cellules decroissant
     setup_counts = cell_setup['setup'].value_counts()
     setup_order = setup_counts.index.tolist()
 
-    # Joindre le setup aux donnees cycliques
     setup_map = cell_setup.set_index('Cell_Name')['setup'].to_dict()
     df_plot = df_raw.copy()
     df_plot['setup'] = df_plot['Cell_Name'].map(setup_map)
 
-    # Grouper par setup et cycle, calculer la moyenne
     fig_setup, ax_setup = plt.subplots(figsize=(14, 8))
-
     for setup_name in setup_order:
         n_cells = setup_counts[setup_name]
         sub = df_plot[df_plot['setup'] == setup_name]
@@ -256,15 +255,13 @@ def _(df_raw, plt, pd):
 
 
 @app.cell
-def _(mo):
-    mo.md("""
-    ## 3. Relations entre predicteurs et SOH
-    """)
+def __(mo):
+    mo.md("## 3. Relations entre predicteurs et SOH")
     return
 
 
 @app.cell
-def _(df_raw, np, num_cols_1, plt, sns):
+def __(df_raw, np, num_cols_1, plt, sns):
     corr_cols_3 = num_cols_1 + ['Cycle']
     corr_3 = df_raw[corr_cols_3].replace(0, np.nan).corr()
 
@@ -273,18 +270,18 @@ def _(df_raw, np, num_cols_1, plt, sns):
     ax_corr.set_title('Matrice de correlation')
     plt.tight_layout()
     plt.gca()
-    return (corr_3,)
+    return corr_3,
 
 
 @app.cell
-def _(corr_3, mo, pd):
+def __(corr_3, mo, pd):
     soh_corr_3 = corr_3['SOH_Energy (%)'].drop('SOH_Energy (%)').sort_values(ascending=False)
     mo.ui.table(pd.DataFrame({'correlation avec SOH': soh_corr_3}))
     return
 
 
 @app.cell
-def _(df_raw, plt):
+def __(df_raw, plt):
     key_preds_3 = ['Cycle', 'Avg_Discharge_Voltage (V)', 'Avg_Charge_Voltage (V)',
                    'Discharge_Capacity (mAh)', 'Charge_Capacity (mAh)',
                    'Polarization (Ohm cm\u00b2)', 'Coulomb_Efficiency (%)']
@@ -304,7 +301,7 @@ def _(df_raw, plt):
 
 
 @app.cell
-def _(df_raw, plt):
+def __(df_raw, plt):
     cycle_preds_3 = ['Discharge_Capacity (mAh)', 'Avg_Discharge_Voltage (V)',
                      'Polarization (Ohm cm\u00b2)', 'Coulomb_Efficiency (%)']
 
@@ -324,15 +321,13 @@ def _(df_raw, plt):
 
 
 @app.cell
-def _(mo):
-    mo.md("""
-    ## 4. Analyse de survie exploratoire (seuil 80%)
-    """)
+def __(mo):
+    mo.md("## 4. Analyse de survie exploratoire (seuil 80%)")
     return
 
 
 @app.cell
-def _(df_raw):
+def __(df_raw, pd):
     last_rows_4 = df_raw.loc[df_raw.groupby('Cell_Name')['Cycle'].idxmax()].copy()
 
     def find_failure_80(grp):
@@ -352,33 +347,29 @@ def _(df_raw):
 
     n_events_4 = surv_4['event_80'].sum()
     n_censored_4 = len(surv_4) - n_events_4
-    return n_censored_4, n_events_4, surv_4
+    return surv_4, n_events_4, n_censored_4
 
 
 @app.cell
-def _(mo, n_censored_4, n_events_4):
-    mo.md(f"""
-    **Survie (80%)** : {n_events_4} evenements, {n_censored_4} censurees, taux d'evenement {n_events_4 / (n_events_4 + n_censored_4) * 100:.0f}%
-    """)
+def __(mo, n_censored_4, n_events_4):
+    mo.md(f"**Survie (80%)** : {n_events_4} evenements, {n_censored_4} censurees, taux d'evenement {n_events_4 / (n_events_4 + n_censored_4) * 100:.0f}%")
     return
 
 
 @app.cell
-def _(mo, surv_4):
+def __(mo, surv_4):
     mo.ui.table(surv_4[['Cell_Name', 'Chemistry', 'Temperature', 'C-rate', 'duration_80', 'event_80']].head(20))
     return
 
 
 @app.cell
-def _(mo):
-    mo.md("""
-    ### Courbes de Kaplan-Meier
-    """)
+def __(mo):
+    mo.md("### Courbes de Kaplan-Meier")
     return
 
 
 @app.cell
-def _(KaplanMeierFitter, plt, surv_4):
+def __(KaplanMeierFitter, plt, surv_4):
     chem_list_km = sorted(surv_4['Chemistry'].unique())
     fig_km1, ax_km1 = plt.subplots(figsize=(10, 6))
     for chem_km in chem_list_km:
@@ -396,7 +387,7 @@ def _(KaplanMeierFitter, plt, surv_4):
 
 
 @app.cell
-def _(KaplanMeierFitter, plt, surv_4):
+def __(KaplanMeierFitter, plt, surv_4):
     fig_km2, axs_km2 = plt.subplots(1, 2, figsize=(16, 6))
     for i_km2, (col_km2, title_km2) in enumerate([('Temperature', 'Temperature'), ('C-rate', 'C-rate')]):
         ax_km2 = axs_km2[i_km2]
@@ -416,15 +407,19 @@ def _(KaplanMeierFitter, plt, surv_4):
 
 
 @app.cell
-def _(mo):
-    mo.md("""
-    ## 5. Preparation pour la modelisation
-    """)
+def __(mo):
+    mo.md("## 5. Preparation pour la modelisation")
     return
 
 
 @app.cell
-def _(df_raw, np):
+def __(mo):
+    mo.md("### Nettoyage basique")
+    return
+
+
+@app.cell
+def __(df_raw, np, pd):
     df_clean_5 = df_raw.copy()
     df_clean_5 = df_clean_5[df_clean_5['Cycle'] > 0]
     df_clean_5 = df_clean_5[df_clean_5['SOH_Energy (%)'].between(1, 130)]
@@ -434,50 +429,31 @@ def _(df_raw, np):
     print(f"Avant : {len(df_raw)} lignes")
     print(f"Apres : {len(df_clean_5)} lignes")
     print(f"Retirees : {len(df_raw) - len(df_clean_5)}")
+    return df_clean_5,
+
+
+@app.cell
+def __(mo):
+    mo.md("### Pistes pour la modelisation\n\n"
+          "1. **Prediction precoce (RUL)** : features extraites des N premiers cycles -> modele parametrique (Weibull, Cox).\n"
+          "2. **Features candidates** : pente SOH initiale, polarisation, coulomb efficiency, parametres CAM.\n"
+          "3. **Explicabilite** : Cox PH (coefficients interpretables) ou Weibull AFT.\n"
+          "4. **Alternative** : modeles mixtes sur trajectoire complete de SOH -> temps de passage a 80%.")
     return
 
 
 @app.cell
-def _(mo):
-    mo.md("""
-    ### Pistes pour la modelisation
-
-    "
-          "1. **Prediction precoce (RUL)** : features extraites des N premiers cycles -> modele parametrique (Weibull, Cox).
-    "
-          "2. **Features candidates** : pente SOH initiale, polarisation, coulomb efficiency, parametres CAM.
-    "
-          "3. **Explicabilite** : Cox PH (coefficients interpretables) ou Weibull AFT.
-    "
-          "4. **Alternative** : modeles mixtes sur trajectoire complete de SOH -> temps de passage a 80%.
-    """)
-    return
-
-
-@app.cell
-def _(mo):
-    mo.md("""
-    ### Observations cles
-
-    "
-          "| Observation | Impact |
-    "
-          "|---|---|
-    "
-          "| Grande variabilite inter-cellules | Effets aleatoires ou features supplementaires |
-    "
-          "| Chimie A plus stable | Variable cle |
-    "
-          "| 60C accelere fortement la degradation | Effet non-lineaire |
-    "
-          "| Polarization augmente avec l'age | Bon indicateur |
-    "
-          "| Coulomb_Efficiency artefact cycle 1 | A corriger |
-    "
-          "| SOH > 100% (bruit) | Winsoriser |
-    "
-          "| 66/157 censurees | Analyse de survie necessaire |
-    """)
+def __(mo):
+    mo.md("### Observations cles\n\n"
+          "| Observation | Impact |\n"
+          "|---|---|\n"
+          "| Grande variabilite inter-cellules | Effets aleatoires ou features supplementaires |\n"
+          "| Chimie A plus stable | Variable cle |\n"
+          "| 60C accelere fortement la degradation | Effet non-lineaire |\n"
+          "| Polarization augmente avec l'age | Bon indicateur |\n"
+          "| Coulomb_Efficiency artefact cycle 1 | A corriger |\n"
+          "| SOH > 100% (bruit) | Winsoriser |\n"
+          "| 66/157 censurees | Analyse de survie necessaire |")
     return
 
 
