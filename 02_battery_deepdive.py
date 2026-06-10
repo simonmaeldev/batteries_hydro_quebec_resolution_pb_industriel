@@ -296,7 +296,29 @@ def _(mo, sel_state):
 
 
 @app.cell
-def _(df_clean, display_names, mo, np, plt, sel):
+def _(mo):
+    metric_options = {
+        "SOH_Energy (%)": "SOH",
+        "Polarization (Ohm cm\u00b2)": "Polarization",
+        "Avg_Charge_Current (A)": "Courant charge",
+        "Discharge_Capacity (mAh)": "Capacite decharge",
+        "Charge_Capacity (mAh)": "Capacite charge",
+        "Avg_Discharge_Voltage (V)": "Tension decharge",
+        "Avg_Charge_Voltage (V)": "Tension charge",
+        "Coulomb_Efficiency (%)": "Efficacite coulombique",
+        "Cycle_Time (h)": "Duree du cycle",
+    }
+    metric_sel = mo.ui.multiselect(
+        options=metric_options,
+        value=list(metric_options.keys()),
+        label="Metriques a afficher",
+    )
+    metric_sel
+    return metric_options, metric_sel
+
+
+@app.cell
+def _(df_clean, display_names, metric_options, metric_sel, mo, np, plt, sel):
     if sel is None:
         mo.stop("Selectionnez une batterie ci-dessus.")
 
@@ -304,17 +326,17 @@ def _(df_clean, display_names, mo, np, plt, sel):
     if len(df_batt) == 0:
         mo.stop(f"Aucune donnee pour {sel}.")
 
-    metrics = {
-        "SOH_Energy (%)": ("SOH", "%"),
-        "Polarization (Ohm cm\u00b2)": ("Polarization", "\u03a9\u00b7cm\u00b2"),
-        "Avg_Charge_Current (A)": ("Courant charge", "A"),
-        "Avg_Discharge_Voltage (V)": ("Tension decharge", "V"),
-        "Avg_Charge_Voltage (V)": ("Tension charge", "V"),
-    }
+    chosen = metric_sel.value
+    if not chosen:
+        mo.stop("Selectionnez au moins une metrique.")
 
-    fig, axs = plt.subplots(5, 1, figsize=(14, 12), sharex=True)
+    n_metrics = len(chosen)
+    fig, axs = plt.subplots(n_metrics, 1, figsize=(14, 3 * n_metrics + 1), sharex=True)
+    if n_metrics == 1:
+        axs = [axs]
 
-    for i, (col, (label, unit)) in enumerate(metrics.items()):
+    for i, col in enumerate(chosen):
+        label, unit = metric_options[col]
         _ax = axs[i]
         vals = df_batt[col].values
         cyc = df_batt["Cycle"].values
