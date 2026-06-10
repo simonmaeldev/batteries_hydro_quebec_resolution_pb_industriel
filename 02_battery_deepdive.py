@@ -323,28 +323,30 @@ def _(mo, sel_state):
 
 @app.cell
 def _(mo):
-    metric_options = {
-        "SOH_Energy (%)": "SOH",
-        "Polarization (Ohm cm\u00b2)": "Polarization",
-        "Avg_Charge_Current (A)": "Courant charge",
-        "Discharge_Capacity (mAh)": "Capacite decharge",
-        "Charge_Capacity (mAh)": "Capacite charge",
-        "Avg_Discharge_Voltage (V)": "Tension decharge",
-        "Avg_Charge_Voltage (V)": "Tension charge",
-        "Coulomb_Efficiency (%)": "Efficacite coulombique",
-        "Cycle_Time (h)": "Duree du cycle",
+    metric_labels = {
+        "SOH_Energy (%)": ("SOH", "%"),
+        "Polarization (Ohm cm\u00b2)": ("Polarization", "\u03a9\u00b7cm\u00b2"),
+        "Avg_Charge_Current (A)": ("Courant charge", "A"),
+        "Discharge_Capacity (mAh)": ("Capacite decharge", "mAh"),
+        "Charge_Capacity (mAh)": ("Capacite charge", "mAh"),
+        "Avg_Discharge_Voltage (V)": ("Tension decharge", "V"),
+        "Avg_Charge_Voltage (V)": ("Tension charge", "V"),
+        "Coulomb_Efficiency (%)": ("Efficacite coulombique", "%"),
+        "Cycle_Time (h)": ("Duree du cycle", "h"),
     }
+    # multiselect: {display_label: stored_value}
+    metric_opts = {v[0]: k for k, v in metric_labels.items()}
     metric_sel = mo.ui.multiselect(
-        options=metric_options,
-        value=list(metric_options.keys()),
+        options=metric_opts,
+        value=list(metric_opts.keys()),
         label="Metriques a afficher",
     )
     metric_sel
-    return metric_options, metric_sel
+    return metric_labels, metric_opts, metric_sel
 
 
 @app.cell
-def _(df_clean, display_names, metric_options, metric_sel, mo, np, plt, sel):
+def _(df_clean, display_names, metric_labels, metric_sel, mo, np, plt, sel):
     if sel is None:
         mo.stop("Selectionnez une batterie ci-dessus.")
 
@@ -362,7 +364,7 @@ def _(df_clean, display_names, metric_options, metric_sel, mo, np, plt, sel):
         axs = [axs]
 
     for i, col in enumerate(chosen):
-        label, unit = metric_options[col]
+        label, unit = metric_labels[col]
         _ax = axs[i]
         vals = df_batt[col].values
         cyc = df_batt["Cycle"].values
