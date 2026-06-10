@@ -95,6 +95,23 @@ def _(pd):
 
 
 @app.cell
+def _(cell_info):
+    def fmt_crate(c):
+        dcir = " DCIR" if "w/ DCIR" in str(c) else ""
+        base = str(c).replace(" w/ DCIR", "")
+        return base + dcir
+
+    display_names = {}
+    for _, r in cell_info.iterrows():
+        meta = (
+            f"{r['Chemistry']} | {r['Temperature']} | "
+            f"{fmt_crate(r['C-rate'])} | {r['CAM_Loading']:.1f}mg/cm2"
+        )
+        display_names[r["Cell_Name"]] = meta
+    return (display_names,)
+
+
+@app.cell
 def _(cell_info, mo):
     chem_opts = sorted(cell_info["Chemistry"].unique().tolist())
     temp_opts = sorted(cell_info["Temperature"].unique().tolist())
@@ -177,7 +194,7 @@ def _(mo):
 
 
 @app.cell
-def _(df_clean, end_idx, filtered, mo, n_cols, plt, start_idx):
+def _(df_clean, display_names, end_idx, filtered, mo, n_cols, plt, start_idx):
     if end_idx <= start_idx:
         mo.stop("Aucune batterie a afficher.")
 
@@ -197,7 +214,7 @@ def _(df_clean, end_idx, filtered, mo, n_cols, plt, start_idx):
         sub = df_clean[df_clean["Cell_Name"] == cell_name].sort_values("Cycle")
         _ax.plot(sub["Cycle"], sub["SOH_Energy (%)"], linewidth=0.8, color="steelblue")
         _ax.axhline(y=80, color="red", linestyle="--", alpha=0.4, linewidth=0.5)
-        _ax.set_title(cell_name, fontsize=7)
+        _ax.set_title(f"{cell_name}\n{display_names[cell_name]}", fontsize=6)
         _ax.set_xlabel("Cycle", fontsize=6)
         _ax.set_ylabel("SOH (%)", fontsize=6)
         _ax.tick_params(labelsize=5)
@@ -279,7 +296,7 @@ def _(mo, sel_state):
 
 
 @app.cell
-def _(df_clean, mo, np, plt, sel):
+def _(df_clean, display_names, mo, np, plt, sel):
     if sel is None:
         mo.stop("Selectionnez une batterie ci-dessus.")
 
@@ -328,7 +345,7 @@ def _(df_clean, mo, np, plt, sel):
         _ax.grid(True, alpha=0.15)
 
     axs[-1].set_xlabel("Cycle", fontsize=9)
-    fig.suptitle(f"{sel}", fontsize=13, fontweight="bold")
+    fig.suptitle(f"{sel}  |  {display_names[sel]}", fontsize=13, fontweight="bold")
     plt.tight_layout()
     plt.gca()
     return
