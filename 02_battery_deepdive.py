@@ -162,23 +162,10 @@ def _(page_state, set_page, total_pages):
 
 
 @app.cell
-def _(filtered, mo, n_cols, n_per_page, page_state, set_page, total_pages):
-    cur_page = page_state()
-    start_idx = (cur_page - 1) * n_per_page
+def _(filtered, n_per_page, page_state):
+    _cur_page = page_state()
+    start_idx = (_cur_page - 1) * n_per_page
     end_idx = min(start_idx + n_per_page, len(filtered))
-
-    prev_btn = mo.ui.button(
-        label="◀ Prev",
-        on_click=lambda v: set_page(max(1, cur_page - 1)),
-        disabled=cur_page <= 1,
-    )
-    next_btn = mo.ui.button(
-        label="Next ▶",
-        on_click=lambda v: set_page(min(total_pages, cur_page + 1)),
-        disabled=cur_page >= total_pages,
-    )
-
-    mo.hstack([prev_btn, mo.md(f"Page {cur_page}/{total_pages}"), next_btn], gap=1)
     return end_idx, start_idx
 
 
@@ -226,18 +213,21 @@ def _(df_clean, end_idx, filtered, mo, n_cols, n_per_page, plt, start_idx):
 
 
 @app.cell
-def _(end_idx, filtered, mo, n_cols, n_per_page, start_idx, total_pages):
-    _cur_page = start_idx // n_per_page + 1
+def _(mo, page_state, set_page, total_pages):
+    cur_page = page_state()
 
-    info = (
-        mo.md(
-            f"**Page {_cur_page}/{total_pages}** - batteries "
-            f"{start_idx + 1}-{end_idx} sur {len(filtered)}"
-        )
-        if total_pages > 1
-        else mo.md(f"**{len(filtered)} batteries** affichees sur {n_cols} colonnes")
+    prev_btn = mo.ui.button(
+        label="◀ Prev",
+        on_click=lambda v: set_page(max(1, cur_page - 1)),
+        disabled=cur_page <= 1,
     )
-    info
+    next_btn = mo.ui.button(
+        label="Next ▶",
+        on_click=lambda v: set_page(min(total_pages, cur_page + 1)),
+        disabled=cur_page >= total_pages,
+    )
+
+    mo.hstack([prev_btn, mo.md(f"Page {cur_page}/{total_pages}"), next_btn], gap=1)
 
 
 @app.cell
