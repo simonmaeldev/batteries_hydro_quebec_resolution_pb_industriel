@@ -22,16 +22,20 @@ def _():
     import matplotlib.pyplot as plt
     import warnings
     warnings.filterwarnings("ignore")
-    return mo, np, pd, plt, warnings
+    return mo, np, pd, plt
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        "# Plots par batterie - Analyse detaillee\n\n"
-        "Navigation: grille SOH, recherche batterie, analyse multi-metrique avec delta cycle-a-cycle.\n\n"
-        "**Filtres appliques**: cycle 0 supprime, SOH hors [1,130] supprime, dernier cycle supprime, cycles lents retires."
-    )
+    mo.md("""
+    # Plots par batterie - Analyse detaillee
+
+    "
+        "Navigation: grille SOH, recherche batterie, analyse multi-metrique avec delta cycle-a-cycle.
+
+    "
+        "**Filtres appliques**: cycle 0 supprime, SOH hors [1,130] supprime, dernier cycle supprime, cycles lents retires.
+    """)
     return
 
 
@@ -87,16 +91,7 @@ def _(pd):
         f"{cell_info['Temperature'].nunique()} temperatures, "
         f"{cell_info['C-rate'].nunique()} C-rates"
     )
-    return (
-        battery_names,
-        cell_info,
-        chem_order,
-        df_clean,
-        df_f,
-        df_raw,
-        flag_cycles,
-        temp_order,
-    )
+    return battery_names, cell_info, df_clean
 
 
 @app.cell
@@ -116,7 +111,7 @@ def _(cell_info, mo):
     )
 
     mo.hstack([chem_filter, temp_filter, crate_filter], gap=2)
-    return chem_filter, chem_opts, crate_filter, crate_opts, temp_filter, temp_opts
+    return chem_filter, crate_filter, temp_filter
 
 
 @app.cell
@@ -131,7 +126,7 @@ def _(cell_info, chem_filter, crate_filter, temp_filter):
 
     n_filtered = len(filtered)
     filtered
-    return filtered, n_filtered
+    return (filtered,)
 
 
 @app.cell
@@ -142,7 +137,7 @@ def _(mo):
 
 
 @app.cell
-def _(filtered, mo, n_cols_slider):
+def _(filtered, n_cols_slider):
     n_cols = n_cols_slider.value
     n_per_page = n_cols * n_cols
     total_pages = max(1, -(-len(filtered) // n_per_page))
@@ -150,32 +145,39 @@ def _(filtered, mo, n_cols_slider):
 
 
 @app.cell
-def _():
-    page_state, set_page = mo.state(1)
-    return page_state, set_page
+def _(mo):
+    prev_btn = mo.ui.button(
+        label="◀ Prev",
+        value=0,
+        on_click=lambda v: v + 1,
+    )
+    next_btn = mo.ui.button(
+        label="Next ▶",
+        value=0,
+        on_click=lambda v: v + 1,
+    )
+    return prev_btn, next_btn
 
 
 @app.cell
-def _(page_state, set_page, total_pages):
-    if page_state() > total_pages:
-        set_page(total_pages)
-
-
-@app.cell
-def _(filtered, n_per_page, page_state):
-    _cur_page = page_state()
-    start_idx = (_cur_page - 1) * n_per_page
+def _(filtered, mo, n_per_page, prev_btn, next_btn, total_pages):
+    page = 1 + next_btn.value - prev_btn.value
+    page = max(1, min(page, total_pages))
+    start_idx = (page - 1) * n_per_page
     end_idx = min(start_idx + n_per_page, len(filtered))
-    return end_idx, start_idx
+
+    mo.hstack([prev_btn, mo.md(f"Page {page}/{total_pages}"), next_btn], gap=1)
+    return end_idx, page, start_idx
 
 
 @app.cell
 def _(mo):
     mo.md("## Grille SOH par batterie")
+    return
 
 
 @app.cell
-def _(df_clean, end_idx, filtered, mo, n_cols, n_per_page, plt, start_idx):
+def _(df_clean, end_idx, filtered, mo, n_cols, plt, start_idx):
     if end_idx <= start_idx:
         mo.stop("Aucune batterie a afficher.")
 
@@ -201,7 +203,6 @@ def _(df_clean, end_idx, filtered, mo, n_cols, n_per_page, plt, start_idx):
         _ax.tick_params(labelsize=5)
         _ax.set_xlim(0, sub["Cycle"].max() + 10)
 
-    # Masquer les axes vides
     for idx in range(n_items, n_rows * n_cols):
         row_idx = idx // n_cols
         col_idx = idx % n_cols
@@ -209,34 +210,19 @@ def _(df_clean, end_idx, filtered, mo, n_cols, n_per_page, plt, start_idx):
 
     plt.tight_layout()
     plt.gca()
-    return axs_grid, cell_name, col_idx, fig_grid, n_items, n_rows, page_cells, row_idx, sub
-
-
-@app.cell
-def _(mo, page_state, set_page, total_pages):
-    cur_page = page_state()
-
-    prev_btn = mo.ui.button(
-        label="◀ Prev",
-        on_click=lambda v: set_page(max(1, cur_page - 1)),
-        disabled=cur_page <= 1,
-    )
-    next_btn = mo.ui.button(
-        label="Next ▶",
-        on_click=lambda v: set_page(min(total_pages, cur_page + 1)),
-        disabled=cur_page >= total_pages,
-    )
-
-    mo.hstack([prev_btn, mo.md(f"Page {cur_page}/{total_pages}"), next_btn], gap=1)
+    return
 
 
 @app.cell
 def _(mo):
-    mo.md("## Recherche et analyse detaillee")
+    mo.md("""
+    ## Recherche et analyse detaillee
+    """)
+    return
 
 
 @app.cell
-def _(battery_names, mo):
+def _(mo):
     search = mo.ui.text(
         label="Rechercher une batterie",
         placeholder="Tapez le nom de la batterie...",
@@ -254,11 +240,11 @@ def _(battery_names, search):
         ]
     else:
         suggestions = []
-    return suggestions, _txt
+    return (suggestions,)
 
 
 @app.cell
-def _():
+def _(mo):
     # State for the selected battery
     sel_state, set_sel = mo.state(None)
     return sel_state, set_sel
@@ -293,7 +279,7 @@ def _(mo, sel_state):
 
 
 @app.cell
-def _(df_clean, mo, plt, sel):
+def _(df_clean, mo, np, plt, sel):
     if sel is None:
         mo.stop("Selectionnez une batterie ci-dessus.")
 
@@ -345,22 +331,7 @@ def _(df_clean, mo, plt, sel):
     fig.suptitle(f"{sel}", fontsize=13, fontweight="bold")
     plt.tight_layout()
     plt.gca()
-    return (
-        ax2,
-        axs,
-        color,
-        col,
-        cyc,
-        delta_display,
-        delta_pct,
-        df_batt,
-        fig,
-        i,
-        label,
-        metrics,
-        unit,
-        vals,
-    )
+    return
 
 
 if __name__ == "__main__":
