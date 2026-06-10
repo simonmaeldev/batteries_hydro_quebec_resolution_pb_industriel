@@ -227,14 +227,40 @@ def _(df_clean, display_names, end_idx, filtered, mo, n_cols, plt, start_idx):
 
     plt.tight_layout()
     plt.gca()
+    return page_cells, n_cols
+
+
+@app.cell
+def _(display_names, mo, n_cols, page_cells, set_sel):
+    _n_items = len(page_cells)
+    _n_rows = max(1, -(-_n_items // n_cols))
+
+    _rows = []
+    for _r in range(_n_rows):
+        _row_btns = []
+        for _c in range(n_cols):
+            _idx = _r * n_cols + _c
+            if _idx < _n_items:
+                _name = page_cells[_idx]
+                _btn = mo.ui.button(
+                    label=_name,
+                    value=_name,
+                    on_click=lambda v, n=_name: set_sel(n),
+                    kind="neutral",
+                    full_width=True,
+                )
+                _row_btns.append(_btn)
+            else:
+                _row_btns.append(mo.md(""))
+        _rows.append(mo.hstack(_row_btns, gap=0.5, widths="equal"))
+
+    mo.vstack(_rows, gap=0.3)
     return
 
 
 @app.cell
 def _(mo):
-    mo.md("""
-    ## Recherche et analyse detaillee
-    """)
+    mo.md("## Recherche et analyse detaillee")
     return
 
 
