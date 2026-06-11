@@ -46,7 +46,7 @@ class predictor_models:
         self.create_folds()
 
         self.xtensor = torch.tensor(
-            indata.drop(["ncycles", "censoring"], axis=1), dtype=torch.float32
+            indata.drop(["ncycles", "censoring"], axis=1).values, dtype=torch.float32
         )
         self.ytensor = torch.tensor(indata["ncycles"].values, dtype=torch.float32)
         self.ctensor = torch.tensor(indata["censoring"].values, dtype=torch.float32)
@@ -103,7 +103,7 @@ class predictor_models:
                 ttrain,
                 duration_col="ncycles",
                 event_col="censoring",
-                label="ExponentialFitter",
+                # label="ExponentialFitter",  # paramètre inexistant sur AFTFitter (existe sur KaplanMeierFitter)
             )
             y_pred = model.predict_percentile(tval[tval["censoring"] == 1])
             y_true = ctval["ncycles"]
@@ -114,7 +114,7 @@ class predictor_models:
             self.indata,
             duration_col="ncycles",
             event_col="censoring",
-            label="ExponentialFitter",
+            # label="ExponentialFitter",  # paramètre inexistant sur AFTFitter (existe sur KaplanMeierFitter)
         )
 
         return mae / np.sum(self.indata["censoring"])
@@ -129,22 +129,26 @@ class predictor_models:
             if ctval.empty:
                 continue
 
-            model = GeneralizedGammaRegressionFitter().fit(
+            fitter = GeneralizedGammaRegressionFitter()
+            fitter._scipy_fit_method = "SLSQP"
+            model = fitter.fit(
                 ttrain,
                 duration_col="ncycles",
                 event_col="censoring",
-                label="GenGammaFitter",
+                # label="GenGammaFitter",  # paramètre inexistant sur AFTFitter (existe sur KaplanMeierFitter)
             )
             y_pred = model.predict_percentile(tval[tval["censoring"] == 1])
             y_true = ctval["ncycles"]
 
             mae += np.sum(abs(y_pred - y_true))
 
-        self.gengamma_model = GeneralizedGammaRegressionFitter().fit(
+        final_fitter = GeneralizedGammaRegressionFitter()
+        final_fitter._scipy_fit_method = "SLSQP"
+        self.gengamma_model = final_fitter.fit(
             self.indata,
             duration_col="ncycles",
             event_col="censoring",
-            label="GenGammaFitter",
+            # label="GenGammaFitter",  # paramètre inexistant sur AFTFitter (existe sur KaplanMeierFitter)
         )
 
         return mae / np.sum(self.indata["censoring"])
@@ -163,7 +167,7 @@ class predictor_models:
                 ttrain,
                 duration_col="ncycles",
                 event_col="censoring",
-                label="LogNormFitter",
+                # label="LogNormFitter",  # paramètre inexistant sur AFTFitter (existe sur KaplanMeierFitter)
             )
             y_pred = model.predict_percentile(tval[tval["censoring"] == 1])
             y_true = ctval["ncycles"]
@@ -174,7 +178,7 @@ class predictor_models:
             self.indata,
             duration_col="ncycles",
             event_col="censoring",
-            label="LogNormFitter",
+            # label="LogNormFitter",  # paramètre inexistant sur AFTFitter (existe sur KaplanMeierFitter)
         )
 
         return mae / np.sum(self.indata["censoring"])
