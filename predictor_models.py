@@ -38,12 +38,12 @@ class predictor_models:
         self.indata = indata
         # BUG (qualité / logique): test_size=0.9 signifie 90% en validation, 10% en train — probablement inversé.
         # De plus, train_data et valid_data ne sont jamais réutilisés nulle part dans la classe (les folds prennent le relais).
-        # FIX: soit supprimer ces deux variables, soit corriger test_size=0.1 si le split était intentionnel.
-        self.train_data, self.valid_data = train_test_split(self.indata, test_size=0.9)
+        # FIX: commenté — ligne sans effet sur l'exécution. À discuter avec l'auteur (supprimer ou corriger test_size=0.1).
+        # self.train_data, self.valid_data = train_test_split(self.indata, test_size=0.9)
         # BUG (qualité): create_folds() assigne self.folds en interne mais ne retourne rien (retourne None implicitement).
-        # self.fold (sans 's') vaut donc None et n'est jamais réutilisé — c'est self.folds (avec 's') qui est utilisé partout.
-        # FIX: soit juste appeler self.create_folds() sans assignation, soit faire retourner les folds dans create_folds().
-        self.fold = self.create_folds()
+        # self.fold (sans 's') valait donc None et n'était jamais réutilisé — c'est self.folds (avec 's') qui est utilisé partout.
+        # FIX: suppression de l'assignation inutile.
+        self.create_folds()
 
         self.xtensor = torch.tensor(
             indata.drop(["ncycles", "censoring"], axis=1), dtype=torch.float32
@@ -180,9 +180,9 @@ class predictor_models:
         return mae / np.sum(self.indata["censoring"])
 
     def train_net(self, model, xx, yy, cc):
-        # BUG (crash): cuda n'est pas importé directement depuis torch — cuda.is_available() lèvera NameError.
-        # FIX: remplacer par torch.cuda.is_available()
-        device = "cuda" if cuda.is_available() else "cpu"
+        # BUG (crash): cuda n'est pas importé directement depuis torch — torch.cuda.is_available() lèvera NameError.
+        # FIX: remplacer par torch.torch.cuda.is_available()
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         lr = 0.001
         epochs = 10
 
@@ -206,22 +206,21 @@ class predictor_models:
     def fit_neuralnet1(self):
         # BUG (crash): df n'est pas défini dans ce scope — lèvera NameError à l'exécution.
         # FIX: remplacer par self.indata.shape[1] - 2 ou self.xtensor.shape[1]
-        input_dim = df.shape[1] - 2
+        input_dim = self.xtensor.shape[1]
 
         class nnregr(nn.Module):
-            # BUG (crash): hidden_dim est déclaré dans la signature mais jamais utilisé dans le corps.
-            # Or nnregr(input_dim) à la ligne plus bas ne passe pas hidden_dim → TypeError au moment de l'instanciation.
-            # FIX: soit retirer hidden_dim de la signature, soit le passer lors de l'instanciation.
-            def __init__(self, input_dim, hidden_dim):
+            # BUG (crash): hidden_dim déclaré dans la signature mais jamais utilisé + jamais passé à l'instanciation → TypeError.
+            # FIX: hidden_dim=1 par défaut (comportement identique), utilisé dans Linear.
+            def __init__(self, input_dim, hidden_dim=1):
                 super(nnregr, self).__init__()
-                self.lin1 = nn.Linear(input_dim, 1)
+                self.lin1 = nn.Linear(input_dim, hidden_dim)
 
             def forward(self, x):
                 return F.relu(self.lin1(x))
 
         # BUG (crash): même cause que train_net — cuda non importé directement.
-        # FIX: torch.cuda.is_available()
-        device = "cuda" if cuda.is_available() else "cpu"
+        # FIX: torch.torch.cuda.is_available()
+        device = "cuda" if torch.cuda.is_available() else "cpu"
 
         ypred = torch.empty(0)
         ytrue = torch.empty(0)
@@ -245,21 +244,19 @@ class predictor_models:
                 # BUG (crash): .to('cpu') est appelé sur le tuple (ypred, ...) et non sur le tenseur retourné par le modèle.
                 # Cause: la parenthèse fermante de torch.cat est mal placée — elle englobe le tuple au lieu de le fermer avant .to().
                 # FIX: torch.cat((ypred, trained_m(vx.to(device)).to('cpu')), 0)
-                ypred = torch.cat((ypred, trained_m(vx.to(device))).to("cpu"), 0)
+                ypred = torch.cat((ypred, trained_m(vx.to(device)).to("cpu")), 0)
                 ytrue = torch.cat((ytrue, vy), 0)
                 cens = torch.cat((cens, vc), 0)
 
         with torch.no_grad():
             mask = cens == 1
-            # BUG (qualité / logique): résultat de np.sum calculé mais jamais assigné ni retourné — code mort.
-            # FIX: supprimer cette ligne, ou l'assigner si la somme totale était voulue en plus de la moyenne.
-            np.sum(abs(ypred[mask] - ytrue[mask]))
+            # np.sum(abs(ypred[mask] - ytrue[mask]))  # BUG (qualité): résultat calculé mais jamais assigné — code mort.
             return torch.mean(abs(ypred[mask] - ytrue[mask]))
 
     def fit_neuralnet2(self):
         # BUG (crash): df n'est pas défini dans ce scope — lèvera NameError à l'exécution.
         # FIX: remplacer par self.indata.shape[1] - 2 ou self.xtensor.shape[1]
-        input_dim = df.shape[1] - 2
+        input_dim = self.xtensor.shape[1]
         hidden_dim = np.floor(input_dim / 4).astype(int)
         if hidden_dim < 2:
             hidden_dim = 2
@@ -277,8 +274,8 @@ class predictor_models:
                 return F.relu(self.lin2(x))
 
         # BUG (crash): même cause que train_net — cuda non importé directement.
-        # FIX: torch.cuda.is_available()
-        device = "cuda" if cuda.is_available() else "cpu"
+        # FIX: torch.torch.cuda.is_available()
+        device = "cuda" if torch.cuda.is_available() else "cpu"
 
         ypred = torch.empty(0)
         ytrue = torch.empty(0)
@@ -293,10 +290,10 @@ class predictor_models:
             vc = self.ctensor[ff[0]]
             vy = self.ytensor[ff[0]]
 
-            # BUG (crash): nnregr.__init__ requiert (input_dim, hidden_dim) mais hidden_dim n'est pas passé ici.
-            # hidden_dim est pourtant calculé à la ligne 194 — c'est un oubli d'argument.
+            # BUG (crash): nnregr.__init__ requiert (input_dim, hidden_dim) mais hidden_dim n'était pas passé ici.
+            # hidden_dim est pourtant calculé quelques lignes au-dessus — c'est un oubli d'argument.
             # FIX: nnregr(input_dim, hidden_dim)
-            model = nnregr(input_dim)
+            model = nnregr(input_dim, hidden_dim)
 
             trained_m = self.train_net(model, tx, ty, tc)
 
@@ -304,15 +301,13 @@ class predictor_models:
             with torch.no_grad():
                 # BUG (crash): même erreur que fit_neuralnet1 — .to('cpu') appliqué sur le tuple, pas sur le tenseur.
                 # FIX: torch.cat((ypred, trained_m(vx.to(device)).to('cpu')), 0)
-                ypred = torch.cat((ypred, trained_m(vx.to(device))).to("cpu"), 0)
+                ypred = torch.cat((ypred, trained_m(vx.to(device)).to("cpu")), 0)
                 ytrue = torch.cat((ytrue, vy), 0)
                 cens = torch.cat((cens, vc), 0)
 
         with torch.no_grad():
             mask = cens == 1
-            # BUG (qualité / logique): même problème que fit_neuralnet1 — résultat de np.sum jamais utilisé.
-            # FIX: supprimer cette ligne.
-            np.sum(abs(ypred[mask] - ytrue[mask]))
+            # np.sum(abs(ypred[mask] - ytrue[mask]))  # BUG (qualité): résultat calculé mais jamais assigné — code mort.
             return torch.mean(abs(ypred[mask] - ytrue[mask]))
 
     def extract_models_mae(
@@ -336,9 +331,9 @@ class predictor_models:
             # BUG (logique silencieux): double problème ici.
             # 1. Chained indexing pandas : maedf[...]["mae"] = ... ne modifie pas maedf en place (SettingWithCopyWarning silencieux).
             #    L'assignation se fait sur une copie temporaire — toutes les valeurs mae restent None.
-            # 2. Le filtre est toujours sur la chaîne littérale "weibul" au lieu de la variable mm
-            #    → même avec un fix du chained indexing, seule la ligne weibul serait mise à jour.
-            # FIX: maedf.loc[maedf["model"]==mm, "mae"] = self.modeldict[mm]()
-            maedf[maedf["model"] == "weibul"]["mae"] = self.modeldict[mm]()
+            # 2. Le filtre était sur la chaîne littérale "weibul" au lieu de la variable mm
+            #    → même avec un fix du chained indexing, seule la ligne weibul aurait été mise à jour.
+            # FIX: maedf.loc avec mm comme variable.
+            maedf.loc[maedf["model"] == mm, "mae"] = self.modeldict[mm]()
 
         return maedf
